@@ -73,8 +73,15 @@ namespace IsoRimCEPackZ
             {
                 return true;
             }
+            // (a thing another mod gives its own aim and volume: always the 3D walk, to its range cell)
+            TargetAim targetAim = default;
+            bool custom = TargetGeometry.Active && TargetGeometry.TryAim(targetThing, __instance, Aim.RootOf(__instance), out targetAim);
+            if (custom)
+            {
+                targetLoc = targetAim.RangeCell;
+            }
             int ks = L.FrameOf(shotSource), kt = L.FrameOf(targetLoc);
-            if (ks == kt || ks == Layout.None || kt == Layout.None)
+            if ((!custom && ks == kt) || ks == Layout.None || kt == Layout.None)
             {
                 return true;
             }
@@ -84,7 +91,15 @@ namespace IsoRimCEPackZ
                 return false;
             }
             PackZ.Changed++;
-            __result = CanHit(__instance, shotSource, targetLoc, targetThing, ks, kt, L, map);
+            TargetGeometry.State before = TargetGeometry.Enter(map, ks);
+            try
+            {
+                __result = CanHit(__instance, shotSource, targetLoc, targetThing, ks, kt, L, map);
+            }
+            finally
+            {
+                TargetGeometry.Exit(before);
+            }
             if (!__result)
             {
                 Blocked++;
@@ -114,7 +129,9 @@ namespace IsoRimCEPackZ
             int aims = targetThing == null && up > 0 ? CellAimsUp.Length : 1;
             for (int ai = 0; ai < aims; ai++)
             {
-                if (Line(verb, shotSource, SightTarget(targetThing, targetLoc, up, L, ks, kt, ai), targetLoc, targetThing, up, ks, L, map, caster))
+                Vector3 point = TargetGeometry.Active && TargetGeometry.TryAim(targetThing, verb, Aim.RootOf(verb), out TargetAim aim)
+                    ? L.FromVirtual(aim.PointVirtual, ks) : SightTarget(targetThing, targetLoc, up, L, ks, kt, ai);
+                if (Line(verb, shotSource, point, targetLoc, targetThing, up, ks, L, map, caster))
                 {
                     return true;
                 }
@@ -169,6 +186,10 @@ namespace IsoRimCEPackZ
                     float lowCE = (s.lo + (s.floor - f) * storey) / k;
                     Vector3 src = L.Translate(shotSource, ks, f);
                     Ray ray = new Ray(src, line.direction);
+                    if (TargetGeometry.Active && !VolumesClear(verb, cell, f, ray, targetThing, caster, aimMode, map))
+                    {
+                        return false;
+                    }
                     if (!CellClear(verb, cell, lowCE, ray, src, targetLoc, targetThing, caster, shooterPawn, aimMode, lighting, map, L))
                     {
                         if (Debug != null)
@@ -199,6 +220,26 @@ namespace IsoRimCEPackZ
             return true;
         }
 
+        // Other mods' volumes over a cell (Api target geometry) block the line like full cover (not for suppressive fire or
+        // a verb that ignores partial cover, as CE treats partial blockers); the target and the shooter never block.
+        private static bool VolumesClear(Verb_LaunchProjectileCE verb, IntVec3 cell, int f, Ray ray, Thing targetThing, Thing caster, AimMode? aimMode, Map map)
+        {
+            List<Thing> volumes = TargetGeometry.At(map, cell);
+            if (volumes == null || verb.VerbPropsCE.ignorePartialLoSBlocker || aimMode == AimMode.SuppressFire)
+            {
+                return true;
+            }
+            foreach (Thing extra in volumes)
+            {
+                if (extra != targetThing && extra != caster && TargetGeometry.TryVolumeIn(extra, map, f, out Bounds b) && b.IntersectRay(ray))
+                {
+                    TargetGeometry.SightBlocks++;
+                    return false;
+                }
+            }
+            return true;
+        }
+
         // CE's per-cell rule (the predicate in CanHitCellFromCellIgnoringRange) on one cell of storey f, the ray in f's frame.
         private static bool CellClear(Verb_LaunchProjectileCE verb, IntVec3 cell, float lowCE, Ray shotLine, Vector3 src, IntVec3 targetLoc, Thing targetThing,
             Thing caster, Pawn shooterPawn, AimMode? aimMode, LightingTracker lighting, Map map, Layout L)
@@ -221,7 +262,7 @@ namespace IsoRimCEPackZ
             {
                 return true;
             }
-            Bounds b = Aim.boundsFor(thing);
+            Bounds b = TargetGeometry.BoundsIn(thing, map, L.FrameOf(cell));
             if (thing.def.Fillage != FillCategory.Full && thing.AdjacentTo8WayOrInside(caster))
             {
                 float toTarget = (L.Ground(cell) - L.Ground(targetLoc)).LengthHorizontal;
@@ -247,8 +288,11 @@ namespace IsoRimCEPackZ
             {
                 return true;
             }
-            int ks = L.FrameOf(caster.Position), kt = L.FrameOf(target.Cell);
-            if (ks == kt || ks == Layout.None || kt == Layout.None)
+            TargetAim targetAim = default;
+            bool custom = TargetGeometry.Active && TargetGeometry.TryAim(target.Thing, __instance, Aim.RootOf(__instance), out targetAim);
+            IntVec3 reference = custom ? targetAim.RangeCell : target.Cell;
+            int ks = L.FrameOf(caster.Position), kt = L.FrameOf(reference);
+            if ((!custom && ks == kt) || ks == Layout.None || kt == Layout.None)
             {
                 return true;
             }
@@ -263,6 +307,10 @@ namespace IsoRimCEPackZ
             Vector3 dst = L.TranslateRows(thing != null ? thing.TrueCenter() : target.Cell.ToVector3Shifted(), kt, ks);
             // the line to the lowest point CE aims at (a pawn's BottomHeight): cover it passes over hides nothing CE aims at
             dst.y = (kt - ks) * Layout.S + (thing != null ? new CollisionVertical(thing).BottomHeight : 0f);
+            if (custom)
+            {
+                dst = L.FromVirtual(targetAim.PointVirtual, ks);   // (another mod's aim point)
+            }
             int n = ProjectZ.Api.WalkLine3D(L.ToVirtual(src, ks), L.ToVirtual(dst, ks), map, steps, false);
             if (n < 3)
             {

@@ -30,6 +30,8 @@ namespace IsoRimCEPackZ
     // the smart rockets' aim height) and clears CE's caches (predicted positions, shot line); the velocity is unchanged
     // (frames are pure translations). Lerped trajectories land where their height reaches the frame's floor: after a move
     // down their end is worked out again for the new storey (the same horizontal speed, so the path is unchanged).
+    // Api surface explosions (SurfaceExplosions): the plane contacts are reported there (BeginStep, Contact); both return
+    // at once while no rule is registered.
     // Cost without floors: one map lookup per projectile tick (Layout.Of caches the last map).
     internal static class Frames
     {
@@ -107,6 +109,7 @@ namespace IsoRimCEPackZ
         public static Vector3 Step(Vector3 next, ProjectileCE p)
         {
             pending = null;
+            SurfaceExplosions.BeginStep(p);
             Layout L = Layout.Of(p.Map);
             if (L == null)
             {
@@ -136,6 +139,7 @@ namespace IsoRimCEPackZ
                 bool floor = ProjectZ.Api.HasFloorAt(g, k, p.Map);
                 if (floor || (!overhead && ProjectZ.Api.PlaneSolid(g, k, p.Map)))
                 {
+                    SurfaceExplosions.Contact(p, L, k, at, k, false, false);
                     return next;   // CE's ground: a slab, deck or roof top
                 }
                 at.y = Eps;
@@ -154,6 +158,7 @@ namespace IsoRimCEPackZ
                 IntVec3 g = new IntVec3(Mathf.FloorToInt(at.x), 0, Mathf.FloorToInt(at.z) - shift);
                 if (!overhead && ProjectZ.Api.PlaneSolid(g, k + 1, p.Map))
                 {
+                    SurfaceExplosions.Contact(p, L, k + 1, at, k, true, false);
                     at.y = S - Eps;
                     pending = p;
                     pendingDir = 0;
@@ -189,6 +194,13 @@ namespace IsoRimCEPackZ
             {
                 // direct fire into the underside of a solid plane (a slab or roof over this storey)
                 PlaneHits++;
+                if (SurfaceExplosions.Active)
+                {
+                    Layout l = Layout.Of(p.Map);
+                    Vector3 at = exactGet(p);
+                    int frame = l.FrameOf(at);
+                    SurfaceExplosions.Contact(p, l, frame + 1, at, frame, true, true);   // (a contact for the Api's surface rules)
+                }
                 p.landed = true;
                 p.Impact(null);
                 return;
@@ -448,6 +460,7 @@ namespace IsoRimCEPackZ
                     {
                         if (ProjectZ.Api.PlaneSolid(g, frame + 1, map))
                         {
+                            SurfaceExplosions.Contact(self, L, frame + 1, p2, frame, true, true);
                             p2.y = S - Eps;
                             stop = true;
                             break;
@@ -501,13 +514,14 @@ namespace IsoRimCEPackZ
                     return false;
                 }
                 Ray local = new Ray(start + off, dir);
-                foreach (Thing item in map.thingGrid.ThingsListAtFast(c))
+                // (other mods' volumes over the cell too, Api target geometry: only while one is registered)
+                foreach (Thing item in TargetGeometry.Active ? TargetGeometry.ThingsAt(map.thingGrid, c, self) : map.thingGrid.ThingsListAtFast(c))
                 {
                     if (self == item)
                     {
                         continue;
                     }
-                    Bounds b = boundsFor(item);
+                    Bounds b = TargetGeometry.Active && TargetGeometry.TryVolumeIn(item, map, frame, out Bounds volume) ? volume : boundsFor(item);
                     if (!b.IntersectRay(local) || (i < 2 && item != intended))
                     {
                         continue;

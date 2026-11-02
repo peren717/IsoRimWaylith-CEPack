@@ -25,7 +25,6 @@
   </loadAfter>
   <incompatibleWith>
     <li>wowgag.CEPerformancePatch</li>
-    <li>Guld.ThreeDSiege</li>
   </incompatibleWith>
   <description>Combat Extended in IsoRim's 3D view and on IsoRimZ floors.
 
@@ -34,7 +33,7 @@
 - Ammo cooking off flashes and throws sparks (can be turned off in the mod settings)
 - With IsoRimZ: shooting, explosions, suppression and shields work between floors
 
-Not compatible with Combat Extended Performance Patch or RimSiege.
+Not compatible with Combat Extended Performance Patch.
 
 Combat Extended logo by the CE team, used under CC BY-NC-SA 4.0.
 
@@ -45,7 +44,7 @@ Combat Extended logo by the CE team, used under CC BY-NC-SA 4.0.
 - 弹药殉爆时会有闪光和火花（可在 mod 设置中关闭）
 - 配合 IsoRimZ：射击、爆炸、压制和护盾在楼层之间正常生效
 
-与 Combat Extended Performance Patch、RimSiege 不兼容。
+与 Combat Extended Performance Patch 不兼容。
 
 Combat Extended 图标来自 CE 团队，依据 CC BY-NC-SA 4.0 使用。</description>
 </ModMetaData>

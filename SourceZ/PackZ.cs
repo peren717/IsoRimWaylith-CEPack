@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
@@ -27,6 +28,9 @@ namespace IsoRimCEPackZ
     //    verb of its own (turret orders and fire arcs, non-snap turrets, CE's target scores and AI tactics, mid-burst
     //    retargeting) reads distances in 3D and points in the viewer's frame; CIWS turrets see their targets' predicted
     //    flight in their own frame and only through open floor planes.
+    //  - Api (Api.cs, Docs/Api.md): placement queries, other mods' target geometry and surface explosion rules. Their CE
+    //    members are checked here at startup; their patches land on first use (ApplyLate), so a game without a user of a
+    //    part has none of its patches.
     //  - Fail-soft: if a key flight or aim patch fails (a CE update), shots between floors are refused (CE's "no line of
     //    sight") rather than flying half-patched; one log line says so. Shots on one floor are untouched. A group is all
     //    or nothing (a failure undoes what it applied); the CE members a group reads are resolved before it patches; the
@@ -116,6 +120,7 @@ namespace IsoRimCEPackZ
         private static void Setup()
         {
             Harmony h = new Harmony("peren.isorimwaylith.cepack.z");
+            H = h;
             bool gate = Try(h, "Gate", Gate.Patch, false, false, typeof(Gate), typeof(Layout));   // the refusal itself first
             FlightOn = Try(h, "Flight", Frames.Patch, true, false, typeof(Frames), typeof(Layout));
             Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(Layout));
@@ -125,21 +130,31 @@ namespace IsoRimCEPackZ
             Try(h, "World shells", WorldShells.Patch, false, false, typeof(WorldShells), typeof(Layout));
             Try(h, "Pod drops", PodDrops.Patch, false, false, typeof(PodDrops), typeof(Layout));
             // areas (not key: a failure leaves CE's own blasts, suppression and shields, each on its floor)
-            Try(h, "Areas", Areas.Patch, false, true, typeof(Areas), typeof(Frames));
+            bool areasOn = Try(h, "Areas", Areas.Patch, false, true, typeof(Areas), typeof(Frames));
             Try(h, "Shields", Shields.Patch, false, true, typeof(Shields), typeof(Frames));
             Try(h, "Other mods' shields", Blockers.Patch, false, true, typeof(Blockers), typeof(Shields), typeof(FrameView), typeof(Frames));
             Try(h, "Radius clips", _ => Areas.PatchClips(), false, false, typeof(Areas));
-            Try(h, "Slab hits", SlabHits.Patch, false, false, typeof(SlabHits), typeof(Layout));
+            bool slabHitsOn = Try(h, "Slab hits", SlabHits.Patch, false, false, typeof(SlabHits), typeof(Layout));
             // P4 (not key: a failure leaves that case as CE has it, on one floor): CIWS, turrets, CE's AI.
             // Harness: -cepacknop4 leaves them out (to show what the P4 checks catch).
+            bool turretsOn = false;
             if (!GenCommandLine.CommandLineArgPassed("cepacknop4"))
             {
                 Try(h, "CIWS", Ciws.Patch, false, true, typeof(Ciws), typeof(Scope), typeof(Views), typeof(Shields), typeof(Aim), typeof(Frames));
                 Try(h, "CIWS comp targets", Ciws.PatchComp, false, true, typeof(Ciws), typeof(FrameView), typeof(Shields), typeof(Aim), typeof(Frames));
-                Try(h, "Turrets", Turrets.Patch, false, true, typeof(Turrets), typeof(Scope), typeof(Views), typeof(Aim), typeof(Frames));
+                turretsOn = Try(h, "Turrets", Turrets.Patch, false, true, typeof(Turrets), typeof(Scope), typeof(Views), typeof(Aim), typeof(Frames));
                 Try(h, "AI", Ai.Patch, false, true, typeof(Ai), typeof(Scope), typeof(Views), typeof(Aim), typeof(Frames));
             }
+            // Api parts (not key, nothing patched now: their CE members are checked, the patches land on first use). Each
+            // builds on the turret views (Scope); target geometry and surface explosions on the flight frames; surface
+            // explosions on the 3D areas and slab hits.
+            bool placement = turretsOn && Try(h, "Api placement queries", PlacementQuery.Prepare, false, false, typeof(PlacementQuery), typeof(QueryContext));
+            bool geometry = turretsOn && Try(h, "Api target geometry", TargetGeometry.Prepare, false, true, typeof(TargetGeometry));
+            bool surface = areasOn && slabHitsOn && Try(h, "Api surface explosions", SurfaceExplosions.Prepare, false, true, typeof(SurfaceExplosions));
             Healthy = Failed.Count == 0;
+            PlacementQuery.Ready = Healthy && placement;
+            TargetGeometry.Ready = Healthy && geometry;
+            SurfaceExplosions.Ready = Healthy && surface;
             string notes = (Problems.Count > 0 ? "; failed: " + string.Join("; ", Problems) : "") + (Skipped.Count > 0 ? "; not applied without the flight patches: " + string.Join(", ", Skipped) : "");
             if (!Healthy)
             {
@@ -272,6 +287,9 @@ namespace IsoRimCEPackZ
                     return;
                 }
                 PartsOff = true;
+                PlacementQuery.Disable();
+                TargetGeometry.Disable();
+                SurfaceExplosions.Disable();
                 bool was = Healthy;
                 Healthy = false;
                 if (was)
@@ -283,6 +301,47 @@ namespace IsoRimCEPackZ
             {
                 Healthy = false;
                 Log.Error(Tag + "Reading ProjectZ's combat parts failed (shots between floors are refused): " + Reason(e));
+            }
+        }
+
+        // The pack's Harmony instance (the Api parts patch with it on first use).
+        internal static Harmony H { get; private set; }
+
+        // An Api part's patches on its first use (main thread; the caller calls it once): all or nothing as a startup group.
+        // False: they could not be applied (undone, one warning); the part stays off and the game is as without it.
+        internal static bool ApplyLate(string group, Action<Harmony> patch)
+        {
+            if (H == null)
+            {
+                return false;
+            }
+            HashSet<(MethodBase, MethodInfo)> before = Owned(H);
+            int applied = Applied;
+            try
+            {
+                patch(H);
+                Log.Message(Tag + group + ": " + (Applied - applied) + " patches, on first use.");
+                return true;
+            }
+            catch (Exception e)
+            {
+                int undone = Undo(H, before);
+                Applied = applied;
+                Problems.Add(group + " (" + Reason(e) + ")");
+                Log.Warning(Tag + group + " could not be patched (" + Reason(e) + (undone > 0 ? ", " + undone + " patches undone" : "") + "): it stays off, Combat Extended as before.");
+                return false;
+            }
+        }
+
+        // The parameters a patch binds by name: a CE update that renamed one fails here, at startup, not at first use.
+        internal static void NeedParams(MethodBase m, params string[] names)
+        {
+            foreach (string n in names)
+            {
+                if (!m.GetParameters().Any(p => p.Name == n))
+                {
+                    throw new MissingMemberException(m.DeclaringType?.Name + "." + m.Name + ": no parameter " + n);
+                }
             }
         }
 

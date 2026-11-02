@@ -36,6 +36,7 @@ namespace IsoRimCEPackZ
             public Map map;
             public Layout L;
             public int frame;
+            public Thing viewer;
         }
 
         [ThreadStatic] private static State cur;
@@ -48,9 +49,9 @@ namespace IsoRimCEPackZ
             {
                 return old;
             }
-            Map map = viewer.Spawned ? viewer.Map : null;
+            Map map = QueryContext.SubjectMap(viewer) ?? (viewer.Spawned ? viewer.Map : null);   // (a placement query's turret: its map)
             Layout L = Layout.Of(map);
-            cur = new State { map = map, L = L, frame = L != null ? L.FrameOf(viewer.Position) : Layout.None };
+            cur = new State { map = map, L = L, frame = L != null ? L.FrameOf(viewer.Position) : Layout.None, viewer = viewer };
             return old;
         }
 
@@ -331,6 +332,11 @@ namespace IsoRimCEPackZ
             if (L == null || t == null || !t.Spawned || t.Map != cur.map)
             {
                 return t.DrawPos;
+            }
+            // (a thing another mod gives its own aim: that point in the viewer's frame)
+            if (TargetGeometry.Active && TargetGeometry.TryAimFrom(t, cur.viewer, cur.map, out TargetAim aim))
+            {
+                return L.FromVirtual(aim.PointVirtual, cur.frame);
             }
             int kt = L.FrameOf(t.Position);
             if (kt == cur.frame || kt == Layout.None || cur.frame == Layout.None)

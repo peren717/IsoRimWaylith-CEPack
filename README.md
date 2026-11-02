@@ -25,3 +25,4 @@ MIT License.
 - One hook: a prefix on `ProjectileCE.DrawAt` (see `Source/Pack.cs` for the design and the height mapping). IsoRim's public Api only.
 - Height mapping: a CE height is drawn at `ce * Api.WallHeight / CollisionVertical.WallCollisionHeight` cells (a CE wall is 2 units, IsoRim's wall `Api.WallHeight` cells).
 - Test harness (`Source/Harness.cs`): dormant unless RimWorld is started with `-cepackprobe`; adds `cepack:...` tokens to IsoRim's harness probe (drawing on/off for before-and-after frames, CE turret ammo and attack orders, ticking until a shell flies or comes down, flight read-outs).
+- Api for other mods (IsoRimZ part: placement queries, target geometry, surface explosion rules): `Docs/Api.md`, calls in `SourceZ/Api.cs`. Harness: `-cepacktest=api` (and `apiload`), `-cepacktest=perf`.

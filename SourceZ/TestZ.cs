@@ -18,6 +18,7 @@ namespace IsoRimCEPackZ
     // OrderAttack) and runs real game ticks (TickManager.DoSingleTick, the game paused between). It reads what happened from
     // CE's own calls (every launch and impact, with the frame it happened in) and checks it.
     //   modes: suite (plan §5 checks 1-7, 12; P3 areas 8-11, 12b; 15 slab edge), p4 (P4 turrets, CIWS, AI), fixb (M13: other mods' shields and CIWS targets, world shells), areas, shields, edge, save (13: save and reload mid-burst), fight (14: a same-floor fight's hash; 14b with explosions)
+    //   api / apiload (the public Api: TestApi), perf (a fixed big fight's tick and frame cost: TestPerf)
     // Output: <savedata>/renders/<-cepacktag>/log.txt, done.txt ("fails=N errors=M").
     [StaticConstructorOnStartup]
     public static partial class TestZ
@@ -161,7 +162,7 @@ namespace IsoRimCEPackZ
                 {
                     packLines.Add(text);
                 }
-                if (script != null && !(packLine && mode == "fault") && !(throwNoise && (text.StartsWith("Tried setting a non-Ballistic TrajectoryWorker") || text.Contains("lerpPosition value changed"))) && !text.StartsWith("Modifying the initial rand seed") && !text.StartsWith("A hidden ritual precept was missing")
+                if (script != null && !(packLine && mode == "fault") && !(throwNoise && (text.StartsWith("Tried setting a non-Ballistic TrajectoryWorker") || text.Contains("lerpPosition value changed"))) && !text.StartsWith("Modifying the initial rand seed") && !ExpectedWarning(text) && !text.StartsWith("A hidden ritual precept was missing")
                     && !(worldShotNoise && text.StartsWith("[CE] Tried to fire projectile to unreachable target cell")))
                 {
                     errors++;   // (warnings during startup are listed, not counted: IsoRim's known static-field notes)
@@ -233,7 +234,7 @@ namespace IsoRimCEPackZ
             }
             Shot s = Record(__instance, hitThing);
             Impacts.Add(s);
-            if (Impacts.Count < 400)
+            if (Impacts.Count < 400 && !Quiet)
             {
                 Out("  impact " + s.def + " id " + s.id + " tick " + s.tick + " frame " + s.frame + " ground " + s.ground + " h " + s.height.ToString("0.00") + " hit " + s.hit);
             }
@@ -336,7 +337,15 @@ namespace IsoRimCEPackZ
                     for (int i = 0; i < n; i++)
                     {
                         manualTick = true;
+                        long perfAt = PerfOn ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+                        long perfBytes = PerfOn ? GC.GetAllocatedBytesForCurrentThread() : 0;
                         Find.TickManager.DoSingleTick();
+                        if (PerfOn)
+                        {
+                            PerfAlloc += GC.GetAllocatedBytesForCurrentThread() - perfBytes;
+                            PerfTickTicks += System.Diagnostics.Stopwatch.GetTimestamp() - perfAt;
+                            PerfTicks++;
+                        }
                         manualTick = false;
                         Hold();
                         Invariant(Find.CurrentMap);
@@ -638,6 +647,15 @@ namespace IsoRimCEPackZ
                     break;
                 case "popup":
                     checks = PopupChecks();
+                    break;
+                case "perf":
+                    checks = new[] { PerfFight() };
+                    break;
+                case "api":
+                    checks = ApiChecks();
+                    break;
+                case "apiload":
+                    checks = new[] { ApiLoad() };
                     break;
                 default:
                     checks = new[] { Balcony(), SlabBlocks(), SlabMidBurst(), Stairwell(), Parapet(), Mortar(), Grenades(), Instant(), Explosions(), Suppression(), Danger(), ShieldChecks(), SameFloorAreas(), SlabEdge() };
