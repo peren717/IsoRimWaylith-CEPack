@@ -250,7 +250,8 @@ def shoulder_arc(M, E, u, y0, d_in, d_out, half_w, mat, n=10):
 def tacvest(F):
     """CE tactical rigging (TacRigging_<Build>): a dark belt round the waist; four white pouches across the belly in two
     pairs with the belt showing between the pairs (south art), one wide pouch on the back (north art); two dark straps
-    from the belt up the front, over the shoulders and down the back to the back pouch (east art: the arc)."""
+    from the belt up the front, over the shoulders and down the back to the back pouch (east art: the arc), left out in 3D:
+    pushed out over armour they tangled (user 2026-11-03)."""
     M = Mesh()
     E = F.E
     S, L, P = 'ceg_strap', 'stuff_ceg_light', 'stuff_ceg_mid'
@@ -262,13 +263,6 @@ def tacvest(F):
     # back pouch: one wide
     mc.loft(M, E, 3.25, 4.75, 0.250, 0.455, 0.024, 0.082, L, extra_u=(4.0,))
     mc.loft(M, E, 3.23, 4.77, 0.392, 0.463, 0.080, 0.090, P, extra_u=(4.0,))
-    # straps: front and back, joined over the shoulder top
-    for s in (1, -1):
-        us = strap_u(F)
-        uf, ub = us * s, (4.0 - us) * s
-        slanted_strap(M, E, 0.55 * s, uf, 0.45, 0.636, 0.09, 0.010, 0.030, S)
-        slanted_strap(M, E, (4.0 - 0.55) * s, ub, 0.45, 0.636, 0.09, 0.010, 0.030, S)
-        shoulder_arc(M, E, uf, 0.630, 0.016, 0.034, 0.026, S)
     return M
 
 
