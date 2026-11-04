@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IsoRim Waylith - Combat Extended Pack: CE's loading bench (model from tools/make_ce_ammobench.py, approved 2026-11-03).
+     As IsoRim's vanilla 3x1 benches: facing north with the worker on the cell south, turned with the building; top 0.62, where
+     bill ingredients and things on it rest. Stuff faces follow the build stuff, the rest are fixed colours from CE's art
+     (Models/ce_bench.mtl). GunsmithingBench draws the same texture. outlineMinSize (Api 15): Patches/CE_Models_Bench.xml.
+     The mech ammo beacon draws the vanilla MechDropBeacon texture: IsoRim's model of it, copied under the pack's mtl. -->
+<Defs>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_AmmoBench</defName>
+    <thingDef>AmmoBench</thingDef>
+    <model>Models/ce_ammobench.obj</model>
+    <surfaceHeight>0.62</surfaceHeight>
+    <builtFor>(3, 1)</builtFor>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_GunsmithingBench</defName>
+    <thingDef>GunsmithingBench</thingDef>
+    <model>Models/ce_ammobench.obj</model>
+    <surfaceHeight>0.62</surfaceHeight>
+    <builtFor>(3, 1)</builtFor>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_MechAmmoBeacon</defName>
+    <thingDef>CombatExtended_MechAmmoBeacon</thingDef>
+    <model>Models/ce_mech_ammo_beacon.obj</model>
+    <builtFor>(1, 1)</builtFor>
+  </IsoRim.ModelDef>
+</Defs>

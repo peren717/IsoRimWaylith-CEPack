@@ -645,6 +645,9 @@ namespace IsoRimCEPackZ
                 case "drafted":
                     checks = DraftedChecks();
                     break;
+                case "bench":
+                    checks = BenchChecks();
+                    break;
                 case "popup":
                     checks = PopupChecks();
                     break;

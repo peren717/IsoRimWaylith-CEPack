@@ -1,0 +1,68 @@
+# IsoRim Waylith - Combat Extended Pack: the loading bench (tools/make_ce_ammobench.py). stuff_* take the build stuff;
+# fixed colours sampled from CE's art, lifted ~1.1x for the 3D shading as the pack's other buildings.
+newmtl stuff_cebn_top
+Kd 1.000 1.000 1.000
+map_Kd IsoRim/Swatches/{stuff}
+newmtl stuff_cebn_edge
+Kd 0.800 0.800 0.800
+map_Kd IsoRim/Swatches/{stuff}
+newmtl stuff_cebn_deep
+Kd 0.620 0.620 0.620
+map_Kd IsoRim/Swatches/{stuff}
+newmtl cebn_rim
+Kd 0.220 0.220 0.220
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_mat
+Kd 0.371 0.371 0.371
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_caliper
+Kd 0.794 0.794 0.794
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_teal
+Kd 0.000 0.500 0.410
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_teal_dark
+Kd 0.000 0.397 0.315
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_steel
+Kd 0.613 0.613 0.613
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_face
+Kd 0.776 0.776 0.776
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_window
+Kd 0.992 0.992 0.992
+newmtl cebn_black
+Kd 0.198 0.198 0.198
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_brass
+Kd 0.893 0.707 0.332
+newmtl cebn_tan
+Kd 0.746 0.647 0.440
+newmtl cebn_powder
+Kd 0.341 0.341 0.341
+newmtl cebn_book_teal
+Kd 0.000 0.500 0.453
+newmtl cebn_book_teal_side
+Kd 0.000 0.362 0.328
+newmtl cebn_book_orange
+Kd 0.984 0.664 0.125
+newmtl cebn_book_orange_side
+Kd 0.725 0.475 0.069
+newmtl cebn_book_red
+Kd 0.552 0.142 0.060
+newmtl cebn_book_red_side
+Kd 0.388 0.095 0.035
+newmtl cebn_paper
+Kd 0.975 0.936 0.725
+newmtl cebn_bcn_shell
+Kd 0.550 0.560 0.430
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_bcn_dark
+Kd 0.290 0.310 0.250
+map_Kd IsoRim/Swatches/Metal
+newmtl cebn_bcn_core
+Kd 0.720 0.760 0.480
+newmtl cebn_bcn_metal
+Kd 0.600 0.620 0.650
+map_Kd IsoRim/Swatches/Metal

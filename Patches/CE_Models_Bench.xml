@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IsoRim Waylith - Combat Extended Pack: the loading bench's small pieces (books, boxes, trays) go without an outline, as
+     IsoRim's chess table. outlineMinSize is an Api 15 field: an older IsoRim keeps the entries without it. -->
+<Patch>
+  <Operation Class="IsoRimCEPack.PatchOperation_IfIsoRimApi">
+    <minVersion>15</minVersion>
+    <apply Class="PatchOperationSequence">
+      <operations>
+        <li Class="PatchOperationAdd">
+          <xpath>/Defs/IsoRim.ModelDef[defName="R3D_CE_AmmoBench" or defName="R3D_CE_GunsmithingBench"]</xpath>
+          <value><outlineMinSize>0.36</outlineMinSize></value>
+        </li>
+      </operations>
+    </apply>
+  </Operation>
+</Patch>
