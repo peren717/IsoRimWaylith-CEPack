@@ -5,6 +5,43 @@ Api for mods that build on Combat Extended between floors. Every call is declare
 [`SourceZ/Api.cs`](../SourceZ/Api.cs). This file holds the rules around the calls, an example per part and the inventory
 of patches.
 
+## Adding to the Api
+
+Rules for anyone adding Api to this pack. Tests and the PR flow: [Testing.md](Testing.md).
+
+**When to add**
+
+1. Propose first: in a PR or issue, say what is needed, who uses it and roughly how it is called. Write code once both sides agree.
+2. Generic mechanisms only. A mod's own logic stays in that mod; nothing here is written for one mod alone.
+3. If the existing Api can do it, don't add more.
+4. If it needs new Api in IsoRim or IsoRimZ, ask for it there. Don't work around them from here.
+
+**Shape**
+
+5. Add, don't change: released types, methods and meanings stay, and old callers keep compiling and running. If something really must change, keep the old one and mark it obsolete.
+6. Every addition raises `Api.Version`, and the docs say which version added it. Callers check `Api.Version` and `Capabilities`.
+7. Don't claim a version number in a PR: it is set in order at merge.
+
+**No effect when unused**
+
+8. Nothing registered: no patches applied, or the hook returns on its first line.
+9. Hot paths (every frame, every projectile, every explosion cell) allocate nothing and use no closures.
+10. Nothing registered: nothing is written to saves.
+
+**Failure stays with the caller**
+
+11. A callback that throws or returns something unusable (NaN, an empty volume, a cell off the map): one warning, that registration is switched off, and the game goes on CE's own path.
+12. Throw only for the caller's own mistakes at registration, such as a null argument or a duplicate owner.
+13. Check every CE member you use at startup. If a CE update no longer matches, that part goes off; shooting must not break.
+14. Save data is written only while a rule is live, and a save loads fine with the rule or the pack gone.
+15. Main thread only. A call from another thread is ignored, with one warning.
+
+**What a PR brings**
+
+16. A section in this file: purpose, an example, limits, the patches it uses.
+17. A test mode with a fake caller in real fights, including deliberate failures.
+18. The full suite results, and a cost comparison with `main`: with nothing registered, within noise.
+
 ## The parts
 
 The Api has three parts:
