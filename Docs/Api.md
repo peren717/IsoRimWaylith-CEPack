@@ -5,6 +5,8 @@ Api for mods that build on Combat Extended between floors. Every call is declare
 [`SourceZ/Api.cs`](../SourceZ/Api.cs). This file holds the rules around the calls, an example per part and the inventory
 of patches.
 
+## The parts
+
 The Api has three parts:
 
 | Part | Calls | What it is for |

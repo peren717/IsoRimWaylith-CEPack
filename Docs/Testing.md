@@ -8,7 +8,7 @@ For contributors and their coding agents. Read this before changing anything und
 - Keep a PR to one topic. Say in the PR which test modes you ran, on how many floors, and the `done.txt` results.
 - Do not commit a built DLL from a PR branch unless the PR says so: the maintainer rebuilds from source at merge.
 - The Workshop item is uploaded by peren717, after the PR is merged.
-- Per-mod logic stays in that mod. This pack exposes generic Api (`Docs/Api.md`); a change to its public shape needs a note in the PR and an `Api.Version` bump.
+- Per-mod logic stays in that mod. New or changed Api follows the rules in `Docs/Api.md` ("Adding to the Api").
 - Everything must fail soft: a CE update or another mod's bad answer switches that part off with one warning, it never breaks shooting.
 - Bugs of CE or other mods themselves are noted, not fixed here.
 
