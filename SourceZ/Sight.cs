@@ -119,6 +119,14 @@ namespace IsoRimCEPackZ
                 return true;
             }
             int up = kt - ks;
+            // (direct fire at a thing: the planes are the fired line's, FireLine; the walk below then only meets cover)
+            bool fired = targetThing != null && FireLine.Direct(verb) && !(TargetGeometry.Active && TargetGeometry.TryAim(targetThing, verb, Aim.RootOf(verb), out _));
+            float firedHeight = 0f;
+            if (fired && !FireLine.Reaches(verb, targetThing, L, map, ks, kt, out firedHeight))
+            {
+                Debug?.Invoke("    sight: no height on the target clears the floor planes");
+                return false;
+            }
             if (targetThing != null)
             {
                 float sh = shotSource.y;
@@ -131,7 +139,11 @@ namespace IsoRimCEPackZ
             {
                 Vector3 point = TargetGeometry.Active && TargetGeometry.TryAim(targetThing, verb, Aim.RootOf(verb), out TargetAim aim)
                     ? L.FromVirtual(aim.PointVirtual, ks) : SightTarget(targetThing, targetLoc, up, L, ks, kt, ai);
-                if (Line(verb, shotSource, point, targetLoc, targetThing, up, ks, L, map, caster))
+                if (fired)
+                {
+                    point.y = firedHeight;
+                }
+                if (Line(verb, shotSource, point, targetLoc, targetThing, up, ks, L, map, caster, !fired))
                 {
                     return true;
                 }
@@ -139,23 +151,21 @@ namespace IsoRimCEPackZ
             return false;
         }
 
-        // One sight line from shotSource to target (frame ks): ProjectZ's 3D walk (a solid plane crossed blocks), CE's
-        // per-cell rule on the cells of every storey it passes, and for a slow shot up the arc rule.
-        private static bool Line(Verb_LaunchProjectileCE verb, Vector3 shotSource, Vector3 target, IntVec3 targetLoc, Thing targetThing, int up, int ks, Layout L, Map map, Thing caster)
+        // One sight line from shotSource to target (frame ks): ProjectZ's 3D walk (with planes: a solid plane crossed blocks),
+        // CE's per-cell rule on the cells of every storey it passes, and for a slow shot up the arc rule. CE's lean point moves
+        // the line that meets cover; planes and arcs are the shot's, which leaves from the centre (FireLine.Leaves).
+        private static bool Line(Verb_LaunchProjectileCE verb, Vector3 shotSource, Vector3 target, IntVec3 targetLoc, Thing targetThing, int up, int ks, Layout L, Map map, Thing caster, bool planes)
         {
             Walks++;
-            int n = ProjectZ.Api.WalkLine3D(L.ToVirtual(shotSource, ks), L.ToVirtual(target, ks), map, steps, true);
+            Vector3 leaves = FireLine.Leaves(verb, shotSource);
+            if (planes && !PlanesClear(leaves, target, ks, L, map))
+            {
+                return false;   // a slab or roof between
+            }
+            int n = ProjectZ.Api.WalkLine3D(L.ToVirtual(shotSource, ks), L.ToVirtual(target, ks), map, steps, false);
             if (n == 0)
             {
                 return false;
-            }
-            for (int i = 0; i < n; i++)
-            {
-                if (steps[i].solidPlane != int.MinValue)
-                {
-                    if (Debug != null) { Debug("    sight: solid plane " + steps[i].solidPlane + " in column " + L.Ground(steps[i].cell) + ", line " + L.ToVirtual(shotSource, ks).ToString("F2") + " -> " + L.ToVirtual(target, ks).ToString("F2") + ", steps " + string.Join(" ", steps.Take(n).Select(x => L.Ground(x.cell).z + "f" + x.floor + "[" + x.lo.ToString("0.00") + "," + x.hi.ToString("0.00") + "]"))); }
-                    return false;   // a slab or roof between
-                }
             }
             Ray line = new Ray(shotSource, target - shotSource);
             AimMode? aimMode = verb.CompFireModes?.CurrentAimMode;
@@ -211,9 +221,24 @@ namespace IsoRimCEPackZ
                     CollisionVertical cv = new CollisionVertical(targetThing);
                     mid.y += (cv.HeightRange.min + cv.HeightRange.max) / 2f;
                 }
-                if (!Aim.SlowShotClears(verb, shotSource, mid, L, map, ks))
+                if (!Aim.SlowShotClears(verb, leaves, mid, L, map, ks))
                 {
                     Debug?.Invoke("    sight: no arc of the slow shot gets past the floor planes");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // The line from one point to the other (frame ks) crosses no solid plane.
+        private static bool PlanesClear(Vector3 from, Vector3 to, int ks, Layout L, Map map)
+        {
+            int n = ProjectZ.Api.WalkLine3D(L.ToVirtual(from, ks), L.ToVirtual(to, ks), map, steps, true);
+            for (int i = 0; i < n; i++)
+            {
+                if (steps[i].solidPlane != int.MinValue)
+                {
+                    if (Debug != null) { Debug("    sight: solid plane " + steps[i].solidPlane + " in column " + L.Ground(steps[i].cell) + ", line " + L.ToVirtual(from, ks).ToString("F2") + " -> " + L.ToVirtual(to, ks).ToString("F2") + ", steps " + string.Join(" ", steps.Take(n).Select(x => L.Ground(x.cell).z + "f" + x.floor + "[" + x.lo.ToString("0.00") + "," + x.hi.ToString("0.00") + "]"))); }
                     return false;
                 }
             }

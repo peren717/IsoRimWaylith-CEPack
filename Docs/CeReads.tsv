@@ -1,0 +1,324 @@
+# What Combat Extended reads of positions, cell distances and its shift report, per method, as of CE DLL md5 de5aa969.
+# The allow-list of mode cereads (SourceZ/TestCeReads.cs): method, read, count, how the pack deals with it (tab separated).
+# A new row or a higher count fails the mode. After a CE update: decide each new read, then add its row here.
+# Not listed, not scanned: TryFindCEShootLineFromTo's CellRect.ClosestCellTo, the target cell it gives ShootLeanUtility; ProjectZ's ShootLean_Patch puts that on the shooter's floor (mode firing, L1).
+CombatExtended.Building_TurretGunCE+<>c__DisplayClass::<TryFindNewTarget>b__/1	Thing.get_Position	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE+<GetGizmos>d__::MoveNext/0	Thing.get_Position	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::BeginBurst/0	Thing.get_Position	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::DrawExtraSelectionOverlays/0	GenThing.TrueCenter	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::DrawExtraSelectionOverlays/0	IntVec3.ToVector3Shifted	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::DrawExtraSelectionOverlays/0	LocalTargetInfo.get_Cell	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::DrawRangeRings/0	Thing.get_Position	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::GetInspectString/0	Thing.get_Position	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::OrderAttack/1	IntVec3.get_LengthHorizontal	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::OrderAttack/1	IntVec3.op_Subtraction	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::OrderAttack/1	LocalTargetInfo.get_Cell	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::OrderAttack/1	Thing.get_Position	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::TryAttackWorldTarget/2	LocalTargetInfo.get_Cell	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::TryOrderAttackWorldTile/2	IntVec3.ToVector3	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::TryOrderAttackWorldTile/2	IntVec3Utility.ToIntVec3	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::TryOrderAttackWorldTile/2	Thing.get_DrawPos	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::TryStartShootSomething/1	Thing.get_Position	2	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::get_DeltaAngle/0	LocalTargetInfo.get_CenterVector3	1	turrets: Turrets, Scope
+CombatExtended.Building_TurretGunCE::get_DeltaAngle/0	Thing.get_DrawPos	1	turrets: Turrets, Scope
+CombatExtended.BulletCE::Impact/1	Thing.get_Position	3	in the projectile's own frame (Frames)
+CombatExtended.CE_Utility::ExitCell/2	IntVec3.ToVector3	1	in the baseline, not audited row by row
+CombatExtended.CE_Utility::ExitCell/2	IntVec3Utility.ToIntVec3	1	in the baseline, not audited row by row
+CombatExtended.CE_Utility::GenerateAmmoCasings/8	IntVec3Utility.ToIntVec3	1	in the baseline, not audited row by row
+CombatExtended.CE_Utility::GetBoundsFor/1	Thing.get_DrawPos	1	in the baseline, not audited row by row
+CombatExtended.CE_Utility::GetBoundsFor/2	IntVec3.ToVector3Shifted	1	in the baseline, not audited row by row
+CombatExtended.CE_Utility::GetMoveSpeed/1	Pawn_PathFollower.nextCell	1	path cost of a real cell, a speed, no position
+CombatExtended.CE_Utility::GetMoveSpeed/1	Thing.get_Position	2	path cost of a real cell, a speed, no position
+CombatExtended.CE_Utility::LaunchProjectileCE/10	IntVec3.get_LengthHorizontal	1	no verb calls it (/8: abilities): left as CE has it
+CombatExtended.CE_Utility::LaunchProjectileCE/10	IntVec3.op_Subtraction	1	no verb calls it (/8: abilities): left as CE has it
+CombatExtended.CE_Utility::LaunchProjectileCE/10	LocalTargetInfo.get_Cell	1	no verb calls it (/8: abilities): left as CE has it
+CombatExtended.CE_Utility::LaunchProjectileCE/10	Thing.get_Position	2	no verb calls it (/8: abilities): left as CE has it
+CombatExtended.CE_Utility::LaunchProjectileCE/8	Thing.get_Position	1	no verb calls it (/8: abilities): left as CE has it
+CombatExtended.CE_Utility::MakeIconOverlay/2	Thing.get_DrawPos	1	in the baseline, not audited row by row
+CombatExtended.CE_Utility::MakeIconOverlay/2	Thing.get_Position	1	in the baseline, not audited row by row
+CombatExtended.CombatExtended.Jobs.Utils.JobGiverUtils_Reload::FindBestAmmo/2	Thing.get_Position	1	AI: Ai, Scope, or cells of one floor
+CombatExtended.CombatExtended.Jobs.Utils.JobGiverUtils_Reload::GetPathCost/2	Thing.get_Position	2	AI: Ai, Scope, or cells of one floor
+CombatExtended.CompSuppressable+<>c__DisplayClass::<IgnoreSuppresion>b__/1	Thing.get_Position	1	suppression: Areas
+CombatExtended.CompSuppressable::AddSuppression/2	LocalTargetInfo.get_Cell	1	suppression: Areas
+CombatExtended.CompSuppressable::AddSuppression/2	Thing.get_DrawPos	1	suppression: Areas
+CombatExtended.CompSuppressable::CompTickInterval/1	Thing.get_DrawPos	1	suppression: Areas
+CombatExtended.CompSuppressable::DebugSetSuppression/1	Thing.positionInt	1	suppression: Areas
+CombatExtended.HomingBulletTrajectoryWorker::ReactiveAcceleration/1	IntVec3.ToVector3Shifted	1	in the projectile's own frame (Frames)
+CombatExtended.HomingBulletTrajectoryWorker::ReactiveAcceleration/1	LocalTargetInfo.get_Cell	1	in the projectile's own frame (Frames)
+CombatExtended.HomingBulletTrajectoryWorker::ReactiveAcceleration/1	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.JobGiver_CheckReload+<>c__DisplayClass::<DoReloadCheck>b__/1	Thing.get_Position	2	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_DefenderReloadTurret::TryFindTurretWhichNeedsReloading/1	Thing.get_Position	1	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_HunkerDown::TryGiveJob/1	Thing.get_Position	2	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_ManTurretsNearPointCE::FindAmmoForTurret/2	Thing.get_Position	1	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_ManTurretsNearSelfCE::FindAmmoForTurret/2	Thing.get_Position	1	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_TakeAndEquip+<>c__DisplayClass::<TryGiveJob>b__/1	Thing.get_Position	11	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_TakeAndEquip::TryGiveJob/1	Thing.get_Position	4	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_UpdateLoadout::FindPickup/6	Thing.get_Position	2	AI: Ai, Scope, or cells of one floor
+CombatExtended.JobGiver_UpdateLoadout::GetUpdateLoadoutJob/1	Thing.get_Position	2	AI: Ai, Scope, or cells of one floor
+CombatExtended.Lasers.LaserBeamCE::Impact/2	GenThing.TrueCenter	3	in the projectile's own frame (Frames)
+CombatExtended.Lasers.LaserBeamCE::SpawnBeam/2	IntVec3Utility.ToIntVec3	3	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::<CheckCellForCollision>b__/1	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::<CheckIntercept>b__/1	IntVec3.ToVector3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::ApplySuppression/2	Thing.get_DrawPos	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckCellForCollision/1	GenThing.TrueCenter	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckCellForCollision/1	IntVec3.ToVector3Shifted	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckCellForCollision/1	IntVec3Utility.ToIntVec3	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckCellForCollision/1	Thing.get_DrawPos	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckCellForCollision/1	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckForCollisionBetween/0	IntVec3Utility.ToIntVec3	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckForCollisionBetween/0	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckForCollisionBetween/0	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckIntercept/3	GenThing.TrueCenter	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckIntercept/3	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CheckIntercept/3	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CompareBlockerCellDistance/2	IntVec3.ToVector3Shifted	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::CompareCollisionCellDistance/2	IntVec3.ToVector3Shifted	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::HasMidStepPawnAdjacent/1	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::HasMidStepPawnAdjacent/1	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::HasMidStepPawnAdjacent/1	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Impact/1	IntVec3Utility.ToIntVec3	8	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Impact/1	Thing.get_DrawPos	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Impact/1	Thing.get_Position	8	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Impact/1	Thing.positionInt	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::ImpactSomething/0	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::InterceptProjectile/4	IntVec3.ToVector3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Launch/8	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::RayCast/11	IntVec3Utility.ToIntVec3	10	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::RayCastWorldTarget/9	GenThing.TrueCenter	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::RayCastWorldTarget/9	IntVec3.ToVector3Shifted	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::RayCastWorldTarget/9	LocalTargetInfo.get_Cell	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Tick/0	IntVec3Utility.DistanceTo	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Tick/0	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Tick/0	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Tick/0	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::Tick/0	Thing.positionInt	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::TryCollideWith/1	IntVec3.ToVector3Shifted	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::TryCollideWith/1	IntVec3.get_LengthHorizontal	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::TryCollideWith/1	IntVec3.op_Subtraction	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::TryCollideWith/1	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::TryCollideWith/1	Thing.get_Position	3	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::TryCollideWith/1	Thing.positionInt	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::TryCollideWithRoof/1	IntVec3.ToVector3Shifted	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE::set_ExactPosition/1	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_BunkerBuster::Impact/1	IntVec3.ToVector3	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_BunkerBuster::Impact/1	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_BunkerBuster::Impact/1	Thing.get_Position	3	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_CIWS::CanCollideWith/2	Thing.get_DrawPos	2	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_Explosive::Impact/1	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_Explosive::Impact/1	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_Explosive::Impact/1	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_Explosive::Tick/0	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_Flare::Impact/1	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_Flare::get_CurrentDist/0	LocalTargetInfo.get_CenterVector3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_Flare::get_OriginToTargetDist/0	LocalTargetInfo.get_CenterVector3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_HeightFuse::HeightFuseAirBurst/0	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_SpawnPawnkind::Impact/1	Thing.get_Position	3	in the projectile's own frame (Frames)
+CombatExtended.ProjectileCE_SpawnsThing::Impact/1	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.Projectile_FireTrail::ThrowFireTrail/3	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.Projectile_FireTrail::Tick/0	IntVec3.ToVector3Shifted	1	in the projectile's own frame (Frames)
+CombatExtended.Projectile_FireTrail::Tick/0	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.aimingAccuracy	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.blindFiring	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.circularMissRadius	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.cover	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.indirectFireShift	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.isAiming	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.lightingShift	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.maxRange	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.roofed	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.shotSource	1	copy or text, no aim
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.shotSpeed	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.sightsEfficiency	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.smokeDensity	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.spreadDegrees	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.swayDegrees	1	report value, no position
+CombatExtended.ShiftVecReport::.ctor/1	ShiftVecReport.target	1	report value, no position
+CombatExtended.ShiftVecReport::GetRandCircularVec/0	ShiftVecReport.circularMissRadius	1	report value, no position
+CombatExtended.ShiftVecReport::GetRandCircularVec/0	ShiftVecReport.indirectFireShift	1	report value, no position
+CombatExtended.ShiftVecReport::GetRandDist/0	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	IntVec3.ToVector3	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	IntVec3.ToVector3Shifted	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	IntVec3.op_Subtraction	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	Pawn_PathFollower.nextCell	2	Aim.NextCell_Transpiler
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	ShiftVecReport.blindFiring	1	report value, no position
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	ShiftVecReport.shotSource	1	the lead: Aim.Report_Postfix moves shotSource to the target's band
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	ShiftVecReport.shotSpeed	4	report value, no position
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	Thing.get_DrawPos	2	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::GetRandLeadVec/0	Thing.get_Position	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::GetRandSpreadVec/0	ShiftVecReport.spreadDegrees	1	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.circularMissRadius	3	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.cover	2	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.indirectFireShift	2	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.lightingShift	3	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.sightsEfficiency	1	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.smokeDensity	2	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.spreadDegrees	2	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.swayDegrees	2	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.target	4	report value, no position
+CombatExtended.ShiftVecReport::GetTextReadout/0	ShiftVecReport.weatherShift	3	report value, no position
+CombatExtended.ShiftVecReport::PredictPawnPos/1	IntVec3.ToVector3	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::PredictPawnPos/1	IntVec3.ToVector3Shifted	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::PredictPawnPos/1	IntVec3.op_Subtraction	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::PredictPawnPos/1	Pawn_PathFollower.nextCell	2	Aim.NextCell_Transpiler
+CombatExtended.ShiftVecReport::PredictPawnPos/1	Thing.get_DrawPos	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::PredictPawnPos/1	Thing.get_Position	1	in the baseline, not audited row by row
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.circularMissRadius	2	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.cover	2	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.hitChance	2	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.indirectFireShift	2	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.shotAngle	1	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.shotSpeed	1	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.spreadDegrees	1	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.swayDegrees	1	report value, no position
+CombatExtended.ShiftVecReport::get_HitChance/0	ShiftVecReport.target	2	report value, no position
+CombatExtended.ShiftVecReport::get_accuracyFactor/0	ShiftVecReport.accuracyFactorInt	2	report value, no position
+CombatExtended.ShiftVecReport::get_accuracyFactor/0	ShiftVecReport.aimingAccuracy	1	report value, no position
+CombatExtended.ShiftVecReport::get_accuracyFactor/0	ShiftVecReport.sightsEfficiency	1	report value, no position
+CombatExtended.ShiftVecReport::get_distShift/0	ShiftVecReport.maxRange	1	report value, no position
+CombatExtended.ShiftVecReport::get_distShift/0	ShiftVecReport.shotDist	2	report value, no position
+CombatExtended.ShiftVecReport::get_environmentShift/0	ShiftVecReport.blindFiring	1	report value, no position
+CombatExtended.ShiftVecReport::get_environmentShift/0	ShiftVecReport.environmentShiftInt	2	report value, no position
+CombatExtended.ShiftVecReport::get_environmentShift/0	ShiftVecReport.lightingShift	1	report value, no position
+CombatExtended.ShiftVecReport::get_environmentShift/0	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::get_environmentShift/0	ShiftVecReport.smokeDensity	1	report value, no position
+CombatExtended.ShiftVecReport::get_environmentShift/0	ShiftVecReport.weatherShift	1	report value, no position
+CombatExtended.ShiftVecReport::get_leadDist/0	ShiftVecReport.leadDistInt	2	report value, no position
+CombatExtended.ShiftVecReport::get_leadDist/0	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::get_leadDist/0	ShiftVecReport.shotSpeed	1	report value, no position
+CombatExtended.ShiftVecReport::get_leadShift/0	ShiftVecReport.blindFiring	3	report value, no position
+CombatExtended.ShiftVecReport::get_leadShift/0	ShiftVecReport.lightingShift	1	report value, no position
+CombatExtended.ShiftVecReport::get_leadShift/0	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::get_leadShift/0	ShiftVecReport.smokeDensity	1	report value, no position
+CombatExtended.ShiftVecReport::get_targetPawn/0	ShiftVecReport.target	1	report value, no position
+CombatExtended.ShiftVecReport::get_visibilityShift/0	ShiftVecReport.aimingAccuracy	1	report value, no position
+CombatExtended.ShiftVecReport::get_visibilityShift/0	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.ShiftVecReport::get_visibilityShift/0	ShiftVecReport.sightsEfficiency	1	report value, no position
+CombatExtended.ShiftVecReport::get_visibilityShift/0	ShiftVecReport.visibilityShiftInt	2	report value, no position
+CombatExtended.SmartRocketTrajectoryWorker::ReactiveAcceleration/1	IntVec3.ToVector3Shifted	1	in the projectile's own frame (Frames)
+CombatExtended.SmartRocketTrajectoryWorker::ReactiveAcceleration/1	LocalTargetInfo.get_Cell	1	in the projectile's own frame (Frames)
+CombatExtended.SmartRocketTrajectoryWorker::ReactiveAcceleration/1	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE+<>c__DisplayClass::<CanHitCellFromCellIgnoringRange>b__/1	IntVec3Utility.DistanceTo	2	replaced between floors: Sight prefix
+CombatExtended.Verb_LaunchProjectileCE+<>c__DisplayClass::<CanHitCellFromCellIgnoringRange>b__/1	IntVec3Utility.ToIntVec3	1	replaced between floors: Sight prefix
+CombatExtended.Verb_LaunchProjectileCE+<>c__DisplayClass::<TryFindCEShootLineFromTo>b__/1	IntVec3Utility.DistanceTo	1	lean cells' sort: Aim.RootDistance_Transpiler
+CombatExtended.Verb_LaunchProjectileCE+<>c__DisplayClass::<TryFindCEShootLineFromTo>b__/1	LocalTargetInfo.get_Cell	1	lean cells' sort: Aim.RootDistance_Transpiler
+CombatExtended.Verb_LaunchProjectileCE::AdjustShotHeight/3	IntVec3Utility.DistanceTo	1	replaced between floors: Aim.AdjustShotHeight_Prefix
+CombatExtended.Verb_LaunchProjectileCE::AdjustShotHeight/3	Thing.get_Position	2	replaced between floors: Aim.AdjustShotHeight_Prefix
+CombatExtended.Verb_LaunchProjectileCE::Available/0	Thing.get_Position	2	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::CanHitCellFromCellIgnoringRange/3	IntVec3.ToVector3Shifted	2	replaced between floors: Sight prefix
+CombatExtended.Verb_LaunchProjectileCE::CanHitCellFromCellIgnoringRange/3	IntVec3Utility.ToIntVec3	1	replaced between floors: Sight prefix
+CombatExtended.Verb_LaunchProjectileCE::CanHitCellFromCellIgnoringRange/3	Thing.get_DrawPos	1	replaced between floors: Sight prefix
+CombatExtended.Verb_LaunchProjectileCE::CanHitFromCellIgnoringRange/3	LocalTargetInfo.get_Cell	2	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::CanHitTarget/2	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::CanHitTargetFrom/3	IntVec3.op_Subtraction	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::CanHitTargetFrom/3	LocalTargetInfo.get_Cell	3	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::GetHighestCoverAndSmokeForTarget/4	LocalTargetInfo.get_Cell	1	replaced between floors: Sight prefix
+CombatExtended.Verb_LaunchProjectileCE::GetHighestCoverAndSmokeForTarget/4	Thing.get_Position	2	replaced between floors: Sight prefix
+CombatExtended.Verb_LaunchProjectileCE::KeepBurstOnNoShootLine/2	IntVec3.ToVector3Shifted	2	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::KeepBurstOnNoShootLine/2	LocalTargetInfo.get_Cell	2	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::KeepBurstOnNoShootLine/2	Thing.get_Position	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::OrderForceTarget/1	Thing.get_Position	2	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::Retarget/0	IntVec3.ToVector3Shifted	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::Retarget/0	LocalTargetInfo.get_Cell	3	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::Retarget/0	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::Retarget/0	Thing.get_Position	3	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/3	GenThing.TrueCenter	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/3	IntVec3.ToVector3Shifted	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/3	LocalTargetInfo.get_Cell	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/3	ShiftVecReport.target	2	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/5	GenThing.TrueCenter	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/5	LocalTargetInfo.get_Cell	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/5	ShiftVecReport.cover	1	report value, no position
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/5	ShiftVecReport.roofed	1	report value, no position
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/5	ShiftVecReport.target	2	report value, no position
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/5	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::ShiftTarget/5	Thing.get_Position	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::ShiftVecReportFor/1	LocalTargetInfo.get_Cell	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::ShiftVecReportFor/2	GenThing.TrueCenter	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShiftVecReportFor/2	IntVec3.get_LengthHorizontal	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShiftVecReportFor/2	IntVec3.op_Subtraction	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShiftVecReportFor/2	ShiftVecReport.shotSource	1	copy or text, no aim
+CombatExtended.Verb_LaunchProjectileCE::ShiftVecReportFor/2	Thing.get_Position	3	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::ShotAngle/1	GenThing.TrueCenter	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::ShotRotation/1	GenThing.TrueCenter	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	LocalTargetInfo.get_Cell	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	ShiftVecReport.swayDegrees	1	report value, no position
+CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	Thing.get_Position	3	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::TryDamageWeapon/3	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::TryFindCEShootLineFromTo/4	GenThing.TrueCenter	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::TryFindCEShootLineFromTo/4	IntVec3.ToVector3	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::TryFindCEShootLineFromTo/4	IntVec3.ToVector3Shifted	2	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::TryFindCEShootLineFromTo/4	IntVec3.op_Subtraction	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::TryFindCEShootLineFromTo/4	IntVec3Utility.ToIntVec3	3	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::TryFindCEShootLineFromTo/4	LocalTargetInfo.get_Cell	3	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::get_ShotSource/0	Thing.get_DrawPos	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::get_ShotSpeed/0	IntVec3.get_LengthHorizontal	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::get_ShotSpeed/0	IntVec3.op_Subtraction	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::get_ShotSpeed/0	LocalTargetInfo.get_Cell	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_LaunchProjectileCE::get_ShotSpeed/0	Thing.get_Position	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_MarkForArtillery::TryCastShot/0	LocalTargetInfo.get_Cell	1	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_MarkForArtillery::TryCastShot/0	ShiftVecReport.aimingAccuracy	1	report value, no position
+CombatExtended.Verb_MarkForArtillery::TryCastShot/0	ShiftVecReport.lightingShift	1	report value, no position
+CombatExtended.Verb_MarkForArtillery::TryCastShot/0	ShiftVecReport.sightsEfficiency	1	report value, no position
+CombatExtended.Verb_MarkForArtillery::TryCastShot/0	ShiftVecReport.weatherShift	1	report value, no position
+CombatExtended.Verb_MeleeAttackCE+<DamageInfosToApply>d__::MoveNext/0	IntVec3.ToVector3	1	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE+<DamageInfosToApply>d__::MoveNext/0	IntVec3.op_Subtraction	1	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE+<DamageInfosToApply>d__::MoveNext/0	Thing.get_Position	2	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::ApplyMeleeDamageToTarget/1	IntVec3.ToVector3Shifted	1	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::DoParry/4	IntVec3.ToVector3	1	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::DoParry/4	IntVec3.op_Subtraction	1	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::DoParry/4	Thing.get_Position	2	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::TryCastShot/0	IntVec3.ToVector3Shifted	1	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::TryCastShot/0	IntVec3.op_Subtraction	2	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::TryCastShot/0	Thing.get_DrawPos	1	melee: adjacent cells, one floor
+CombatExtended.Verb_MeleeAttackCE::TryCastShot/0	Thing.get_Position	6	melee: adjacent cells, one floor
+CombatExtended.Verb_ShootCE::CanHitTargetFrom/2	IntVec3Utility.DistanceTo	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::CanHitTargetFrom/2	LocalTargetInfo.get_Cell	2	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::ExternalCallDropCasing/1	Thing.get_DrawPos	1	in the baseline, not audited row by row
+CombatExtended.Verb_ShootCE::OnCastSuccessful/0	Thing.get_DrawPos	1	in the baseline, not audited row by row
+CombatExtended.Verb_ShootCE::OnCastSuccessful/0	Thing.get_Position	2	in the baseline, not audited row by row
+CombatExtended.Verb_ShootCE::RecalculateWarmupTicks/0	GenThing.TrueCenter	2	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::RecalculateWarmupTicks/0	IntVec3.ToVector3Shifted	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::RecalculateWarmupTicks/0	LocalTargetInfo.get_Cell	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::WarmupComplete/0	IntVec3.get_LengthHorizontal	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::WarmupComplete/0	IntVec3.op_Subtraction	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::WarmupComplete/0	LocalTargetInfo.get_Cell	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::WarmupComplete/0	Thing.get_Position	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::get_AimAngle/0	IntVec3.ToVector3Shifted	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::get_AimAngle/0	LocalTargetInfo.get_Cell	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootCE::get_AimAngle/0	Thing.get_DrawPos	3	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootFlareCE::ShiftVecReportFor/1	GenThing.TrueCenter	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootFlareCE::ShiftVecReportFor/1	LocalTargetInfo.get_CenterVector3	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ShootMortarCE::GetLocalTargetFor/1	Thing.get_DrawPos	1	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_ShootMortarCE::ShiftGlobalTarget/1	ShiftVecReport.maxRange	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftGlobalTarget/1	ShiftVecReport.shotDist	3	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftGlobalTarget/1	ShiftVecReport.spreadDegrees	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/1	LocalTargetInfo.get_Cell	1	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/1	ShiftVecReport.circularMissRadius	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/1	ShiftVecReport.lightingShift	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/1	ShiftVecReport.shotDist	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/1	ShiftVecReport.smokeDensity	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/1	ShiftVecReport.weatherShift	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/2	LocalTargetInfo.get_Cell	3	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/2	ShiftVecReport.shotDist	3	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/2	ShiftVecReport.target	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::ShiftVecReportFor/2	Thing.get_Position	1	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_ShootMortarCE::TryCastGlobalShot/0	LocalTargetInfo.get_Cell	1	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_ShootMortarCE::TryCastGlobalShot/0	ShiftVecReport.swayDegrees	1	report value, no position
+CombatExtended.Verb_ShootMortarCE::TryCastGlobalShot/0	Thing.get_Position	2	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_ShootMortarCE::TryCastGlobalShot/0	Thing.positionInt	1	overhead or world shots: Aim spotting, WorldShells
+CombatExtended.Verb_ThrowGrenade::DrawHighlight/1	LocalTargetInfo.get_CenterVector3	1	throws: Throws
+CombatExtended.Verb_ThrowGrenade::DrawHighlight/1	Thing.get_Position	1	throws: Throws
+CombatExtended.Verb_ThrowGrenade::FindAngle/6	GenThing.TrueCenter	2	throws: Throws
+CombatExtended.Verb_ThrowGrenade::FindAngle/6	LocalTargetInfo.get_Cell	3	throws: Throws
+CombatExtended.Verb_ThrowGrenade::FindAngle/6	Thing.get_DrawPos	1	throws: Throws
+CombatExtended.Verb_ThrowGrenade::FindAngle/6	Thing.get_Position	1	throws: Throws
+CombatExtended.Verb_ThrowGrenade::TryCastShot/0	GenThing.TrueCenter	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ThrowGrenade::TryCastShot/0	IntVec3.op_Subtraction	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ThrowGrenade::TryCastShot/0	IntVec3Utility.ToIntVec3	1	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ThrowGrenade::TryCastShot/0	Thing.get_Position	4	frame transpiler (Aim.Frame_Transpiler)
+CombatExtended.Verb_ThrowGrenade::TryFindCEShootLineFromTo/4	LocalTargetInfo.get_Cell	1	throws: Throws
+CombatExtended.Verb_ThrowGrenade::TryStartCastOn/6	Thing.get_Position	1	throws: Throws

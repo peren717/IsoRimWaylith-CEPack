@@ -8,6 +8,7 @@ using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace IsoRimCEPackZ
 {
@@ -21,15 +22,20 @@ namespace IsoRimCEPackZ
     //   IntVec3 - IntVec3, IntVec3.DistanceTo                                                           -> over the ground
     // (the shooter's own points are unchanged; on one floor every one of these is CE's own value). The target's height is
     // raised by the storeys between in GetTargetHeight (a postfix: (kt - ks) * S), and AdjustShotHeight works with those
-    // heights too. Downstream CE's own maths then holds: shot angle and rotation, distance, lead, miss radius; the bullet
-    // leaves the shooter's band at the muzzle and reaches the target's band through Frames (crossing the planes).
+    // heights too. Downstream CE's own maths then holds for rotation, distance and miss radius. Two things do not follow
+    // from the frames and have their own step: CE's lead predicts a pawn in the pawn's own band, so its report's shot source
+    // is moved there (Report_Postfix), and its vertical angle is flat-world (FireLine). The bullet leaves the shooter's band
+    // at the muzzle and reaches the target's band through Frames (crossing the planes).
     // The shooter's frame is the caster's floor, or the floor of the cell CE is testing a shot from (TryFindCEShootLineFromTo:
-    // root, a cast position on another floor).
+    // root, a cast position on another floor). CE's lean cells need no read here: it asks the game's ShootLeanUtility, and
+    // ProjectZ's ShootLean_Patch moves the target onto the shooter's floor there (mode firing, L1); Sight then keeps a lean to
+    // the cover it passes (FireLine.Leaves).
     internal static class Aim
     {
         [ThreadStatic] private static int rootFrame;
         [ThreadStatic] private static bool rootSet;
         [ThreadStatic] private static IntVec3 rootCell;
+        [ThreadStatic] private static Verb rootVerb;
 
         // The cell a verb fires from now: root while TryFindCEShootLineFromTo tests one, else the caster's cell.
         internal static IntVec3 RootOf(Verb verb) => rootSet ? rootCell : verb.caster.Position;
@@ -71,9 +77,42 @@ namespace IsoRimCEPackZ
             PackZ.Prefix(h, LaunchMethod(8), typeof(Aim), nameof(LaunchFull_Prefix));
             PackZ.Prefix(h, LaunchMethod(3), typeof(Aim), nameof(LaunchInner_Prefix));
             shotSpeed =AccessTools.MethodDelegate<Func<Verb_LaunchProjectileCE, float>>(AccessTools.PropertyGetter(v, "ShotSpeed"));
+            FireLine.Patch(h);
         }
 
+        // Not key (a failure leaves these reads as CE has them: a lead on a stair step, the order of the lean cells): the
+        // pawn's next cell in CE's lead, and the ground distance in TryFindCEShootLineFromTo's sort of the lean cells.
+        public static void PatchExtras(Harmony h)
+        {
+            foreach (string name in new[] { "PredictPawnPos", nameof(ShiftVecReport.GetRandLeadVec) })
+            {
+                PackZ.Transpiler(h, AccessTools.Method(typeof(ShiftVecReport), name), typeof(Aim), nameof(NextCell_Transpiler));
+            }
+            MethodInfo distance = AccessTools.Method(typeof(IntVec3Utility), nameof(IntVec3Utility.DistanceTo), new[] { typeof(IntVec3), typeof(IntVec3) });
+            foreach (MethodInfo m in Closures(typeof(Verb_LaunchProjectileCE), "TryFindCEShootLineFromTo"))
+            {
+                if (PatchProcessor.GetOriginalInstructions(m).Any(ci => ci.operand is MethodInfo mi && mi == distance))
+                {
+                    PackZ.Transpiler(h, m, typeof(Aim), nameof(RootDistance_Transpiler));
+                }
+            }
+        }
+
+        // The compiler's lambdas of a method (the name may find nothing after a CE rebuild: the order then stays CE's own).
+        private static IEnumerable<MethodInfo> Closures(Type t, string method) => new[] { t }.Concat(t.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public))
+            .SelectMany(x => x.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            .Where(m => m.Name.StartsWith("<" + method + ">"));
+
         private static Func<Verb_LaunchProjectileCE, float> shotSpeed;
+
+        internal static float Speed(Verb_LaunchProjectileCE verb) => shotSpeed(verb);
+
+        // CE's ballistics: the weapon's reach is set by its throw (see LobRangeFactor).
+        internal static bool Slow(Verb_LaunchProjectileCE verb, ProjectilePropertiesCE props)
+        {
+            float v = shotSpeed(verb), g = props.GravityPerWidth;
+            return g > 0f && v * v <= LobRangeFactor * g * verb.verbProps.range;
+        }
         public static int HighArcs, LowArcsBlocked;   // (LowArcsBlocked: aimed low arcs that rise into a slab, fast or slow)
 
         // A slow direct-fire shot (a thrown grenade) at a target on a higher floor: CE's low arc rises through the floor
@@ -551,10 +590,11 @@ namespace IsoRimCEPackZ
         }
 
         // TryFindCEShootLineFromTo tests a shot from root, which may be a cell on another floor than the caster.
-        public static void Root_Prefix(Verb_LaunchProjectileCE __instance, IntVec3 root, out (bool, int, IntVec3) __state)
+        public static void Root_Prefix(Verb_LaunchProjectileCE __instance, IntVec3 root, out (bool, int, IntVec3, Verb) __state)
         {
-            __state = (rootSet, rootFrame, rootCell);
+            __state = (rootSet, rootFrame, rootCell, rootVerb);
             rootCell = root;
+            rootVerb = __instance;
             Layout L = Layout.Of(__instance.caster?.Map);
             if (L == null)
             {
@@ -564,12 +604,81 @@ namespace IsoRimCEPackZ
             rootSet = true;
         }
 
-        public static Exception Root_Finalizer(Exception __exception, (bool, int, IntVec3) __state)
+        public static Exception Root_Finalizer(Exception __exception, (bool, int, IntVec3, Verb) __state)
         {
             rootSet = __state.Item1;
             rootFrame = __state.Item2;
             rootCell = __state.Item3;
+            rootVerb = __state.Item4;
             return __exception;
+        }
+
+        // A lambda of TryFindCEShootLineFromTo has no verb to hand: the verb of the shot being tested.
+        public static float RootGroundDistance(IntVec3 a, IntVec3 b) => rootVerb != null ? GroundDistance(a, b, rootVerb) : a.DistanceTo(b);
+
+        public static IEnumerable<CodeInstruction> RootDistance_Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo distance = AccessTools.Method(typeof(IntVec3Utility), nameof(IntVec3Utility.DistanceTo), new[] { typeof(IntVec3), typeof(IntVec3) });
+            MethodInfo mine = AccessTools.Method(typeof(Aim), nameof(RootGroundDistance));
+            foreach (CodeInstruction ci in instructions)
+            {
+                if (ci.opcode == OpCodes.Call && ci.operand is MethodInfo mi && mi == distance)
+                {
+                    ci.operand = mine;
+                }
+                yield return ci;
+            }
+        }
+
+        // ------------------------------------------------------------------ the next cell in CE's lead
+        // On a stair step a pawn's next cell is on the next floor's band while it is still drawn on its own; CE's lead takes
+        // its heading from that cell. Seen on the pawn's own band (ShiftVecReport: PredictPawnPos, GetRandLeadVec).
+        public static IntVec3 NextCellOf(Pawn_PathFollower pather, ShiftVecReport report)
+        {
+            IntVec3 next = pather.nextCell;
+            Pawn p = report.targetPawn;
+            Layout L = Layout.Of(p?.Map);
+            if (L == null)
+            {
+                return next;
+            }
+            int kp = L.FrameOf(p.Position), kn = L.FrameOf(next);
+            if (kp == kn || kp == Layout.None || kn == Layout.None)
+            {
+                return next;
+            }
+            PackZ.Changed++;
+            return L.Cell(L.Ground(next), kp);
+        }
+
+        private static IntVec3 nextCellHeld;
+
+        public static ref IntVec3 NextCellRef(Pawn_PathFollower pather, ShiftVecReport report)
+        {
+            nextCellHeld = NextCellOf(pather, report);
+            return ref nextCellHeld;
+        }
+
+        public static IEnumerable<CodeInstruction> NextCell_Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase __originalMethod)
+        {
+            FieldInfo next = AccessTools.Field(typeof(Pawn_PathFollower), nameof(Pawn_PathFollower.nextCell));
+            int found = 0;
+            foreach (CodeInstruction ci in instructions)
+            {
+                if ((ci.opcode == OpCodes.Ldfld || ci.opcode == OpCodes.Ldflda) && ci.operand is FieldInfo fi && fi == next)
+                {
+                    string mine = ci.opcode == OpCodes.Ldfld ? nameof(NextCellOf) : nameof(NextCellRef);
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci).MoveBlocksFrom(ci);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Aim), mine));
+                    found++;
+                    continue;
+                }
+                yield return ci;
+            }
+            if (found == 0)
+            {
+                throw new InvalidOperationException("ShiftVecReport." + __originalMethod.Name + ": no read of a pawn's next cell");
+            }
         }
 
         // ------------------------------------------------------------------ heights
@@ -629,8 +738,24 @@ namespace IsoRimCEPackZ
 
         // ShiftVecReportFor(target, cell): TryCastShot passes the target cell in the shooter's frame; the light and the
         // weather are those of the real target cell (CE: CombatGlowAtFor, Roofed).
+        // The report's shot source: its one reader is CE's lead (GetRandLeadVec), which takes it from a position in the
+        // target's band. So for a pawn on another floor it is moved there, and it is NOT the true shot source any more.
+        // Recheck on CE updates that nothing else reads it (the CE reads snapshot, mode cereads, fails if a reader appears).
         public static void Report_Postfix(Verb_LaunchProjectileCE __instance, LocalTargetInfo target, IntVec3 targetCell, ShiftVecReport __result)
         {
+            if (__result != null && target.Thing is Pawn)
+            {
+                Layout L = Layout.Of(__instance.caster?.Map);
+                if (L != null)
+                {
+                    int ks = ShooterFrame(__instance, L), kt = L.FrameOf(target.Cell);
+                    if (ks != kt && ks != Layout.None && kt != Layout.None)
+                    {
+                        PackZ.Changed++;
+                        shotSourceRef(__result).y += L.Shift(kt) - L.Shift(ks);
+                    }
+                }
+            }
             if (__result == null || !target.IsValid || target.Cell == targetCell || !CrossFloor(__instance, target.Cell))
             {
                 return;
@@ -642,6 +767,8 @@ namespace IsoRimCEPackZ
             bool ignore = __instance.EquipmentSource != null && __instance.EquipmentSource.TryGetComp<CompUniqueWeapon>(out CompUniqueWeapon comp) && comp.IgnoreAccuracyMaluses;
             __result.weatherShift = !ignore && (!from.Roofed(map) || !target.Cell.Roofed(map)) ? 1f - map.weatherManager.CurWeatherAccuracyMultiplier : 0f;
         }
+
+        private static readonly AccessTools.FieldRef<ShiftVecReport, Vector2> shotSourceRef = AccessTools.FieldRefAccess<ShiftVecReport, Vector2>("shotSource");
 
         // ------------------------------------------------------------------ mortar spotting (D3: LineClear3D)
         public static IEnumerable<CodeInstruction> Spotting_Transpiler(IEnumerable<CodeInstruction> instructions)
