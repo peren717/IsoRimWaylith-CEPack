@@ -19,6 +19,7 @@ namespace IsoRimCEPackZ
     // CE's own calls (every launch and impact, with the frame it happened in) and checks it.
     //   modes: suite (plan §5 checks 1-7, 12; P3 areas 8-11, 12b; 15 slab edge), p4 (P4 turrets, CIWS, AI), fixb (M13: other mods' shields and CIWS targets, world shells), areas, shields, edge, save (13: save and reload mid-burst), fight (14: a same-floor fight's hash; 14b with explosions)
     //   api / apiload (the public Api: TestApi), perf (a fixed big fight's tick and frame cost: TestPerf)
+    //   firing (lead, the fired line and Sight per shot: TestZFiring), cereads (CE's reads against Docs/CeReads.tsv, no map needed: TestCeReads)
     // Output: <savedata>/renders/<-cepacktag>/log.txt, done.txt ("fails=N errors=M").
     [StaticConstructorOnStartup]
     public static partial class TestZ
@@ -78,6 +79,10 @@ namespace IsoRimCEPackZ
             h.Patch(AccessTools.Method(typeof(ProjectileCE), nameof(ProjectileCE.Throw)), postfix: new HarmonyMethod(typeof(TestZ), nameof(Launch_Postfix)));
             h.Patch(Aim.ByName(typeof(Verb_LaunchProjectileCE), "ShiftVecReportFor", 2), postfix: new HarmonyMethod(typeof(TestZ), nameof(Report_Postfix)));
             PatchAreas(h);
+            if (mode == "firing")
+            {
+                PatchFiring(h);
+            }
             // the pack's warnings and errors logged before this hook (its startup lines)
             foreach (LogMessage lmsg in Log.Messages)
             {
@@ -162,7 +167,7 @@ namespace IsoRimCEPackZ
                 {
                     packLines.Add(text);
                 }
-                if (script != null && !(packLine && mode == "fault") && !(throwNoise && (text.StartsWith("Tried setting a non-Ballistic TrajectoryWorker") || text.Contains("lerpPosition value changed"))) && !text.StartsWith("Modifying the initial rand seed") && !ExpectedWarning(text) && !text.StartsWith("A hidden ritual precept was missing")
+                if (script != null && !(packLine && mode == "fault") && !(throwNoise && (text.StartsWith("Tried setting a non-Ballistic TrajectoryWorker") || text.Contains("lerpPosition value changed"))) && !text.StartsWith("Modifying the initial rand seed") && !ExpectedWarning(text) && !text.StartsWith("A hidden ritual precept was missing") && !(mode == "firing" && text.Contains("on unwalkable cell"))
                     && !(worldShotNoise && text.StartsWith("[CE] Tried to fire projectile to unreachable target cell")))
                 {
                     errors++;   // (warnings during startup are listed, not counted: IsoRim's known static-field notes)
@@ -348,6 +353,7 @@ namespace IsoRimCEPackZ
                         }
                         manualTick = false;
                         Hold();
+                        FireTick();
                         Invariant(Find.CurrentMap);
                     }
                     ticksLeft -= n;
@@ -659,6 +665,12 @@ namespace IsoRimCEPackZ
                     break;
                 case "apiload":
                     checks = new[] { ApiLoad() };
+                    break;
+                case "firing":
+                    checks = FiringChecks();
+                    break;
+                case "cereads":
+                    checks = new[] { CeReads() };
                     break;
                 default:
                     checks = new[] { Balcony(), SlabBlocks(), SlabMidBurst(), Stairwell(), Parapet(), Mortar(), Grenades(), Instant(), Explosions(), Suppression(), Danger(), ShieldChecks(), SameFloorAreas(), SlabEdge() };

@@ -123,8 +123,9 @@ namespace IsoRimCEPackZ
             H = h;
             bool gate = Try(h, "Gate", Gate.Patch, false, false, typeof(Gate), typeof(Layout));   // the refusal itself first
             FlightOn = Try(h, "Flight", Frames.Patch, true, false, typeof(Frames), typeof(Layout));
-            Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(Layout));
-            Try(h, "Sight", Sight.Patch, true, false, typeof(Sight), typeof(Aim), typeof(Layout));
+            Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(FireLine), typeof(Layout));
+            Try(h, "Aim extras", Aim.PatchExtras, false, false, typeof(Aim), typeof(Layout));
+            Try(h, "Sight", Sight.Patch, true, false, typeof(Sight), typeof(Aim), typeof(FireLine), typeof(Layout));
             Try(h, "Throws", Throws.Patch, true, false, typeof(Throws), typeof(Aim), typeof(Layout));
             Try(h, "Flight extras", Frames.PatchExtras, false, true, typeof(Frames));
             Try(h, "World shells", WorldShells.Patch, false, false, typeof(WorldShells), typeof(Layout));
