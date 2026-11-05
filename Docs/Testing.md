@@ -33,6 +33,7 @@ For contributors and their coding agents. Read this before changing anything und
    dotnet build SourceZ/IsoRimCEPackZ.csproj -c Release -nodeReuse:false --no-incremental
    ```
    The project files read `RimDir` and `WorkshopDir`; pass your own with `-p:RimDir=... -p:WorkshopDir=...`. `-p:IsoRimDll=<path>` and `-p:ProjectZDll=<path>` build against another copy of those mods. Test against the latest `master` of IsoRim and ProjectZ.
+5. Make the game load your build. The builds land in the working copy: `1.7/Assemblies/IsoRimWaylith_CEPack.dll` and `1.7/IsoRimZ/Assemblies/IsoRimWaylith_CEPackZ.dll`. The game only reads mods in its `Mods` folder and the Workshop folder, so work in a folder under `Mods`, link one there, or copy both DLLs over the installed pack. Keep only one copy of the pack active, unsubscribe the Workshop one in the test setup. Before trusting a result, compare the hash of both DLLs in the folder the game really loads with your build: a stale DLL passes the old code's tests.
 
 ## Run a test
 
@@ -58,7 +59,7 @@ Run one game at a time per save data folder. After a run, restore anything you c
 
 ## The suite
 
-Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, drafted on 2 only). About 45 runs; for a small change run the modes that touch it, plus `suite`.
+Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, drafted on 2 only; cereads once). About 50 runs; for a small change run the modes that touch it, plus `suite`.
 
 | Mode | Covers |
 |---|---|
@@ -67,6 +68,7 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 | `p4` | CIWS, turrets, CE's AI between floors |
 | `areas` | explosions, suppression between floors |
 | `shields` | shields, other mods' blockers |
+| `firing` | direct fire between floors: lead, per-shot aim, slab lips, Sight against the fired line, lean shots. `-cepacknofire`, `-cepacknolean` and `-cepacknoleanfix` turn a fix off to show what the checks catch |
 | `edge` | map edges, void rows, odd placements |
 | `save` | save and load in flight |
 | `fight` | a real fight; also run with `-cepacknoz` (Z part off) |
@@ -75,17 +77,23 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 | `posture` | CE postures on the 3D figures |
 | `popup` | popping up to fire over cover |
 | `drafted` | the drafted idle rule |
+| `bench` | CE's loading bench built and worked in the real flow. Needs the ammo system ON, see below |
+| `cereads` | CE's reads of positions and distances against `Docs/CeReads.tsv`, no game state. Fails on a new read after a CE update: review `cereads_new.tsv` in the run's folder, then update the list (`-cepackreadswrite` writes the full list as `cereads_all.tsv`) |
 | `api` | the extension Api with a fake siege engine (`Docs/Api.md`); `-cepackapi=<ids>` picks checks |
-| `apiload` | with `-cepacknoz`: a save made in `api` loads without the Z part |
+| `apiload` | with `-cepacknoz`: a save made in `api` loads without the Z part. Always straight after `api`, see below |
 | `perf` | one fixed big fight, for comparing cost; `-cepackperfreg` adds idle registrations. Interleave runs of the two builds: the fight varies about 4% between runs |
 
-`-cepackonly=<ids>` (or `-ceposture=`, `-cepopup=`, `-cedrafted=` in those modes) runs single checks.
+`-cepackonly=<ids>` runs single checks in `fixb` and `p4` only. `api` has `-cepackapi=`, posture, popup and drafted have `-ceposture=`, `-cepopup=`, `-cedrafted=`; the other modes have no filter.
+
+`api` and `apiload` are a pair: `api` writes a save with a fixed name, `apiload` reads and deletes it. Run them in the same save data folder and with the same floors, one pair at a time: `api` then `apiload` on 2 floors, then the same on 3. Otherwise the save is overwritten, comes from the wrong floor count, or is not found.
+
+`bench` is the one exception to the ammo setting in Set up: set `<enableAmmoSystem>True</enableAmmoSystem>` for that run and restore it after.
 
 Comparing builds matters more than a single result: run `main` and your branch the same way.
 
 ## Known noise
 
-Some checks are not fully deterministic and pass on a rerun: `save` check 13, `areas` 8c, 9b, mortar 6, P4i, m230 D2, drafted D2c, TripleRocket respawn lines. Rerun once; a check that fails twice, or fails only on your branch, is real.
+Some checks are not fully deterministic and pass on a rerun: `save` check 13, `areas` 8c, 9b, mortar 6, P4i, m230 D2, drafted D2c, TripleRocket respawn lines. `firing` F7 needs a hit and can fail when the seeds shift. Rerun once; a check that fails twice, or fails only on your branch, is real.
 
 Filtered CE noise: "Spawning destroyed thing" for a spent Gun_TripleRocket, and the `/damagedThings` load ID warning from a save made mid-explosion. Both are CE's own.
 
