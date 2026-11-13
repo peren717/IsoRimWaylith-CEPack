@@ -70,6 +70,15 @@ namespace IsoRimCEPackZ
             }
             PackZ.Postfix(h, ByName(v, "GetTargetHeight", 4), typeof(Aim), nameof(TargetHeight_Postfix));
             PackZ.Prefix(h, ByName(v, "AdjustShotHeight", 3), typeof(Aim), nameof(AdjustShotHeight_Prefix));
+            try
+            {
+                ceReport = PackZ.NonVirtual<Func<Verb_LaunchProjectileCE, LocalTargetInfo, IntVec3, ShiftVecReport>>(ByName(v, "ShiftVecReportFor", 2));
+            }
+            catch (Exception e)
+            {
+                // (only the light and weather of shots between floors are then CE's for the shooter-frame cell)
+                PackZ.Once("cereport", "Combat Extended's ShiftVecReportFor could not be bound (" + PackZ.Reason(e) + "): light and weather of shots between floors are read at the shooter-frame cell.");
+            }
             PackZ.Postfix(h, ByName(v, "ShiftVecReportFor", 2), typeof(Aim), nameof(Report_Postfix));
             PackZ.Transpiler(h, ByName(typeof(Verb_ShootMortarCE), "ShiftVecReportFor", 2), typeof(Aim), nameof(Spotting_Transpiler));
             PackZ.Prefix(h, ByName(v, "ShotAngle", 2), typeof(Aim), nameof(ShotAngle_Prefix));
@@ -704,8 +713,10 @@ namespace IsoRimCEPackZ
         internal static readonly Func<Thing, Bounds> boundsFor = AccessTools.MethodDelegate<Func<Thing, Bounds>>(AccessTools.Method(typeof(CE_Utility), Fault.Name(nameof(CE_Utility.GetBoundsFor), "aim"), new[] { typeof(Thing) }));
         private static CoverFn coverFn;
 
-        // CE: AdjustShotHeight (raise the shot over the cover in front of a taller target), with the target's and its cover's
-        // heights in the shooter's frame and the ground distance. One floor: CE's own.
+        // Copied from CE Verb_LaunchProjectileCE.AdjustShotHeight (watched, CopyWatches): raise the shot over the cover in
+        // front of a taller target, with the target's and its cover's heights in the shooter's frame and the ground distance
+        // (CE's bounds heights are over each thing's own floor, its distance is DistanceTo: neither is answerable by a
+        // scope). One floor: CE's own.
         public static bool AdjustShotHeight_Prefix(Verb_LaunchProjectileCE __instance, Thing caster, LocalTargetInfo target, ref float shotHeight, ref float __result)
         {
             int up = FloorsUp(__instance, target.Cell);
@@ -737,7 +748,8 @@ namespace IsoRimCEPackZ
         }
 
         // ShiftVecReportFor(target, cell): TryCastShot passes the target cell in the shooter's frame; the light and the
-        // weather are those of the real target cell (CE: CombatGlowAtFor, Roofed).
+        // weather are those of the real target cell: taken from CE's own report for that cell (the base method, called
+        // non-virtually, so a subclass's additions such as the mortar's spotting don't run twice).
         // The report's shot source: its one reader is CE's lead (GetRandLeadVec), which takes it from a position in the
         // target's band. So for a pawn on another floor it is moved there, and it is NOT the true shot source any more.
         // Recheck on CE updates that nothing else reads it (the CE reads snapshot, mode cereads, fails if a reader appears).
@@ -760,15 +772,24 @@ namespace IsoRimCEPackZ
             {
                 return;
             }
-            Map map = __instance.caster.Map;
-            IntVec3 from = __instance.caster.Position;
+            if (ceReport == null)
+            {
+                return;
+            }
+            ShiftVecReport real = ceReport(__instance, target, target.Cell);   // (this postfix returns at once on that call)
+            if (real == null)
+            {
+                return;
+            }
             PackZ.Changed++;
-            __result.lightingShift = CE_Utility.GetLightingShift(__instance.Shooter, map.GetLightingTracker().CombatGlowAtFor(from, target.Cell));
-            bool ignore = __instance.EquipmentSource != null && __instance.EquipmentSource.TryGetComp<CompUniqueWeapon>(out CompUniqueWeapon comp) && comp.IgnoreAccuracyMaluses;
-            __result.weatherShift = !ignore && (!from.Roofed(map) || !target.Cell.Roofed(map)) ? 1f - map.weatherManager.CurWeatherAccuracyMultiplier : 0f;
+            __result.lightingShift = real.lightingShift;
+            __result.weatherShift = real.weatherShift;
         }
 
         private static readonly AccessTools.FieldRef<ShiftVecReport, Vector2> shotSourceRef = AccessTools.FieldRefAccess<ShiftVecReport, Vector2>("shotSource");
+
+        // CE's Verb_LaunchProjectileCE.ShiftVecReportFor(target, cell), non-virtual (bound in Patch).
+        private static Func<Verb_LaunchProjectileCE, LocalTargetInfo, IntVec3, ShiftVecReport> ceReport;
 
         // ------------------------------------------------------------------ mortar spotting (D3: LineClear3D)
         public static IEnumerable<CodeInstruction> Spotting_Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -781,6 +802,9 @@ namespace IsoRimCEPackZ
             {
                 if (ci.opcode == OpCodes.Call && ci.operand is MethodInfo mi && mi == los)
                 {
+                    // (the verb and its target on top of the call's arguments: the heights are theirs)
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci);
+                    yield return new CodeInstruction(OpCodes.Ldarg_1);
                     ci.operand = mine;
                     found++;
                 }
@@ -794,9 +818,11 @@ namespace IsoRimCEPackZ
 
         public static int SpottingChecks;
 
-        // The spotter's sight from the mortar to the target: GenSight on one floor, ProjectZ's 3D line between floors (from
-        // a standing spotter's eyes to the target's middle height).
-        public static bool Spotting(IntVec3 start, IntVec3 end, Map map, bool skipFirstCell, Func<IntVec3, bool> validator, int halfXOffset, int halfZOffset)
+        // The spotter's sight from the mortar to the target: GenSight on one floor, ProjectZ's 3D line between floors, from
+        // the spotter's eyes to the target's middle (heights from CE's CollisionVertical; a cell target: Sight's one rule for
+        // aiming at a cell on another floor, Sight.CellAims).
+        public static bool Spotting(IntVec3 start, IntVec3 end, Map map, bool skipFirstCell, Func<IntVec3, bool> validator, int halfXOffset, int halfZOffset,
+            Verb_ShootMortarCE verb, LocalTargetInfo target)
         {
             Layout L = Layout.Of(map);
             if (L != null)
@@ -806,10 +832,33 @@ namespace IsoRimCEPackZ
                 {
                     PackZ.Changed++;
                     SpottingChecks++;
-                    return ProjectZ.Api.LineClear3D(start, 1.5f * Layout.CellsPerUnit, end, 0.85f * Layout.CellsPerUnit, map, validator);
+                    float k = Layout.CellsPerUnit;
+                    float eye = SpotterHeight(verb) * k;
+                    if (target.Thing != null)
+                    {
+                        CollisionVertical cv = new CollisionVertical(target.Thing);
+                        return ProjectZ.Api.LineClear3D(start, eye, end, (cv.Min + cv.Max) / 2f * k, map, validator);
+                    }
+                    int up = kt - ks;
+                    for (int i = 0; i < Sight.CellAims(up); i++)
+                    {
+                        if (ProjectZ.Api.LineClear3D(start, eye, end, Sight.CellAimHeight(up, i), map, validator))
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
                 }
             }
             return GenSight.LineOfSight(start, end, map, skipFirstCell, validator, halfXOffset, halfZOffset);
+        }
+
+        // The spotter's eyes in CE units: CE's shot height of the verb's ShooterPawn (CE's own pick: the caster pawn or the
+        // turret's operator), else the mortar verb's own.
+        private static float SpotterHeight(Verb_ShootMortarCE verb)
+        {
+            Pawn crew = verb.ShooterPawn;
+            return crew != null ? new CollisionVertical(crew).shotHeight : verb.ShotHeight;
         }
 
     }

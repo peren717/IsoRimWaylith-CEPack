@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using Verse;
@@ -31,6 +32,8 @@ namespace IsoRimCEPackZ
     //  - Api (Api.cs, Docs/Api.md): placement queries, other mods' target geometry and surface explosion rules. Their CE
     //    members are checked here at startup; their patches land on first use (ApplyLate), so a game without a user of a
     //    part has none of its patches.
+    //  - Copies (CopyWatches): where CE's own method can't be called between floors, the pack's copy of it is listed with
+    //    the CE method's IL hash and watched through IsoRim's Api.WatchCopy (one warning after a CE update changed it).
     //  - Fail-soft: if a key flight or aim patch fails (a CE update), shots between floors are refused (CE's "no line of
     //    sight") rather than flying half-patched; one log line says so. Shots on one floor are untouched. A group is all
     //    or nothing (a failure undoes what it applied); the CE members a group reads are resolved before it patches; the
@@ -170,6 +173,7 @@ namespace IsoRimCEPackZ
             {
                 Log.Message(Tag + "Combat Extended between floors: " + Applied + " patches.");
             }
+            CopyWatches.Register();
         }
 
         // The groups that failed (with the reason) and the ones left out because the flight patches failed.
@@ -394,6 +398,49 @@ namespace IsoRimCEPackZ
         {
             h.Patch(target, transpiler: new HarmonyMethod(owner, patch));
             Applied++;
+        }
+
+        // A key part failed in play (a CE update met at run time): from now on shots between floors are refused and the Api
+        // parts are off, as after a key group failed at startup (or ProjectZ's parts were off: CheckParts). One warning.
+        internal static void FailInPlay(string part, string reason)
+        {
+            if (!Healthy)
+            {
+                return;
+            }
+            Healthy = false;
+            Failed.Add(part);
+            PlacementQuery.Disable();
+            TargetGeometry.Disable();
+            SurfaceExplosions.Disable();
+            Log.Warning(Tag + part + " failed in play (" + reason + "): shots between floors are refused from now on, shots on one floor are as Combat Extended has them.");
+        }
+
+        // A delegate that calls CE's instance method m itself, not an override (IL call, not callvirt; Harmony's patches on
+        // m still run): the instance first, then m's parameters. The delegate type must match that exactly (checked: a
+        // class's closed, non-static method; else ArgumentException).
+        internal static D NonVirtual<D>(MethodInfo m) where D : Delegate
+        {
+            Type owner = m?.DeclaringType;
+            if (m == null || m.IsStatic || owner == null || owner.IsValueType || owner.ContainsGenericParameters || m.ContainsGenericParameters)
+            {
+                throw new ArgumentException("NonVirtual: not a closed instance method of a class: " + owner?.Name + "." + m?.Name);
+            }
+            Type[] args = new[] { owner }.Concat(m.GetParameters().Select(p => p.ParameterType)).ToArray();
+            MethodInfo invoke = typeof(D).GetMethod("Invoke");
+            if (invoke.ReturnType != m.ReturnType || !invoke.GetParameters().Select(p => p.ParameterType).SequenceEqual(args))
+            {
+                throw new ArgumentException("NonVirtual: " + typeof(D).Name + " does not match " + owner.Name + "." + m.Name);
+            }
+            DynamicMethod dm = new DynamicMethod("IsoRimCEPackZ_call_" + m.Name, m.ReturnType, args, typeof(PackZ).Module, true);
+            ILGenerator il = dm.GetILGenerator();
+            for (int i = 0; i < args.Length; i++)
+            {
+                il.Emit(OpCodes.Ldarg, (short)i);
+            }
+            il.Emit(OpCodes.Call, m);
+            il.Emit(OpCodes.Ret);
+            return (D)dm.CreateDelegate(typeof(D));
         }
     }
 
