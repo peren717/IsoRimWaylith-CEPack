@@ -72,15 +72,17 @@ namespace IsoRimCEPackZ
         private static IEnumerator<int> OwnerMinCollision()
         {
             Out("--- o1 CE's own minimum collision distance, between floors");
-            Wipe(105, 172, 145, 214);
-            Slab(120, 176, 130, 188);
-            Pawn target = Target(On(125, 206, 0));
-            Pawn shooter = Colonist(On(125, 182, 1), "Gun_AssaultRifle");
+            // (check 2's balcony, moved to a block of its own)
+            Wipe(110, 171, 125, 198);
+            Slab(115, 176, 119, 180);
+            Pawn target = Target(On(117, 193, 0));
+            Pawn shooter = Colonist(On(117, 180, 1), "Gun_AssaultRifle");
             Harmony h = new Harmony("peren.isorimwaylith.cepack.testz.o1");
             MethodInfo launch = typeof(ProjectileCE).GetMethods().First(x => x.Name == "Launch" && x.GetParameters().Length == 3 && x.DeclaringType == typeof(ProjectileCE));
             h.Patch(AccessTools.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) }), postfix: new HarmonyMethod(typeof(TestZ), nameof(MinCollision_Postfix)));
             h.Patch(launch, postfix: new HarmonyMethod(typeof(TestZ), nameof(MinSeen_Postfix)) { priority = Priority.Last });
             yield return 30;
+            string can = CanHit(shooter, target);
             minSeen.Clear();
             minMark = true;
             int t0 = Find.TickManager.TicksGame;
@@ -90,9 +92,9 @@ namespace IsoRimCEPackZ
             h.UnpatchAll(h.Id);
             List<Shot> launched = By(shooter, Launches, t0);
             List<float> mine = minSeen.Where(s => s.by == shooter.ThingID).Select(s => s.min).ToList();
-            Out("  launched " + launched.Count + ", minimum collision distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))));
+            Out("  can hit " + can + ", launched " + launched.Count + ", minimum collision distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))));
             Check("o1 a shot between floors takes CE's own (patched) minimum collision distance", launched.Count > 0 && mine.Count > 0 && mine.All(v => Mathf.Abs(v - MinCollisionMarker) < 1e-4f),
-                "launched " + launched.Count + ", distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))) + " (marker " + MinCollisionMarker + ")");
+                "can hit " + can + ", launched " + launched.Count + ", distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))) + " (marker " + MinCollisionMarker + ")");
             Gone(shooter, target);
         }
 
