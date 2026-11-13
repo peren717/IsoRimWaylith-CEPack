@@ -11,6 +11,7 @@ For contributors and their coding agents. Read this before changing anything und
 - Per-mod logic stays in that mod. New or changed Api follows the rules in `Docs/Api.md` ("Adding to the Api").
 - Everything must fail soft: a CE update or another mod's bad answer switches that part off with one warning, it never breaks shooting.
 - Bugs of CE or other mods themselves are noted, not fixed here.
+- Call CE's own code rather than copy it (inside ProjectZ's 3D scope, Api 10, where that answers what it asks). A copy that can't be avoided says "Copied from CE <Type.Method>" and gets a row in `SourceZ/CopyWatches.cs` with the CE method's hash (mode `cereads`).
 
 ## Set up
 
@@ -78,7 +79,7 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 | `popup` | popping up to fire over cover |
 | `drafted` | the drafted idle rule |
 | `bench` | CE's loading bench built and worked in the real flow. Needs the ammo system ON, see below |
-| `cereads` | CE's reads of positions and distances against `Docs/CeReads.tsv`, no game state. Fails on a new read after a CE update: review `cereads_new.tsv` in the run's folder, then update the list (`-cepackreadswrite` writes the full list as `cereads_all.tsv`) |
+| `cereads` | CE's reads of positions and distances against `Docs/CeReads.tsv`, no game state. Fails on a new read after a CE update: review `cereads_new.tsv` in the run's folder, then update the list (`-cepackreadswrite` writes the full list as `cereads_all.tsv`). Also checks every CE method the pack copies (`SourceZ/CopyWatches.cs`) against the IL hash its copy follows: after a CE update a failing row names the copy to review; `cecopies_now.tsv` has the hashes now to paste once it is. `-cepackfault=watchcopy` gives the first row a wrong hash: one IsoRim warning at startup and that check fails |
 | `api` | the extension Api with a fake siege engine (`Docs/Api.md`); `-cepackapi=<ids>` picks checks |
 | `apiload` | with `-cepacknoz`: a save made in `api` loads without the Z part. Always straight after `api`, see below |
 | `perf` | one fixed big fight, for comparing cost; `-cepackperfreg` adds idle registrations. Interleave runs of the two builds: the fight varies about 4% between runs |

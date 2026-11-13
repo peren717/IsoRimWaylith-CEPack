@@ -70,6 +70,7 @@ namespace IsoRimCEPackZ
             {
                 throw new MissingMethodException("ProjectileCE.Launch(Thing, Vector2, Thing)");
             }
+            BindMinCollision();
             PackZ.Postfix(h, launch, typeof(Frames), nameof(Launch_Postfix));
             PackZ.Postfix(h, PackZ.Method(typeof(ProjectileCE), nameof(ProjectileCE.Throw)), typeof(Frames), nameof(Throw_Postfix));
             PackZ.Prefix(h, PackZ.Method(typeof(ProjectileCE), nameof(ProjectileCE.RayCast)), typeof(Frames), nameof(RayCast_Prefix));
@@ -330,11 +331,48 @@ namespace IsoRimCEPackZ
             {
                 return;
             }
+            if (minCollision == null)
+            {
+                return;
+            }
             Vector3 t = L.TranslateRows(p.intendedTarget.Cell.ToVector3Shifted(), kt, ks);
             float dist = new Vector2(t.x - o.x, t.z - o.y).magnitude;
-            // CE: Verb_LaunchProjectileCE.GetMinCollisionDistance
+            float min;
+            try
+            {
+                min = minCollision(null, dist);
+            }
+            catch (Exception e)
+            {
+                minCollision = null;
+                PackZ.Once("mincollision", "Combat Extended's GetMinCollisionDistance could not be called (" + PackZ.Reason(e) + "): shots between floors keep CE's own minimum collision distance.");
+                return;
+            }
             PackZ.Changed++;
-            p.minCollisionDistance = dist <= 1.5f / 0.2f ? Mathf.Min(1.5f, dist * 0.75f) : dist * 0.2f;
+            p.minCollisionDistance = min;
+        }
+
+        // CE's own Verb_LaunchProjectileCE.GetMinCollisionDistance(distance): a protected helper that reads no verb state,
+        // called without a verb through a non-virtual delegate. Null when CE no longer has it (one warning; CE's own value
+        // then stays between floors).
+        private static Func<Verb_LaunchProjectileCE, float, float> minCollision;
+
+        private static void BindMinCollision()
+        {
+            MethodInfo m = AccessTools.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) });
+            if (m == null || m.IsStatic || m.ReturnType != typeof(float))
+            {
+                PackZ.Once("mincollision", "Combat Extended's Verb_LaunchProjectileCE.GetMinCollisionDistance(float) was not found: shots between floors keep CE's own minimum collision distance.");
+                return;
+            }
+            try
+            {
+                minCollision = PackZ.NonVirtual<Func<Verb_LaunchProjectileCE, float, float>>(m);
+            }
+            catch (Exception e)
+            {
+                PackZ.Once("mincollision", "Combat Extended's GetMinCollisionDistance could not be bound (" + PackZ.Reason(e) + "): shots between floors keep CE's own minimum collision distance.");
+            }
         }
 
         // ------------------------------------------------------------------ roofs
@@ -395,9 +433,9 @@ namespace IsoRimCEPackZ
 
         public static int RayCastsAcross;
 
-        // CE's RayCast (1.6 DLL, ProjectileCE.RayCast) with the same plane rule per step: the ray is marched in the frame of
-        // the storey each point is in (open planes move it on, solid planes stop it as the ground does). On a map without
-        // floors CE's own runs.
+        // Copied from CE ProjectileCE.RayCast (watched, CopyWatches: CE marches its own ray over the raw map), with the same
+        // plane rule per step: the ray is marched in the frame of the storey each point is in (open planes move it on, solid
+        // planes stop it as the ground does). On a map without floors CE's own runs.
         public static bool RayCast_Prefix(ProjectileCE __instance, Thing launcher, VerbProperties verbProps, Vector2 origin, float shotAngle, float shotRotation,
             float shotHeight, float shotSpeed, float spreadDegrees, float aperatureSize, Thing equipment, bool useSameHeight)
         {
@@ -579,7 +617,8 @@ namespace IsoRimCEPackZ
         // map both are worked out over the ground rows: the target's column (its ground cell), the edge cell where the
         // shell's line from that column leaves the ground rows (as CE does: the same direction, three quarters of the way
         // for a shell). The shell then flies in the ground frame and Launch moves it to the frame of its height; it lands
-        // on the first floor it meets coming down (the column top, D3 a).
+        // on the first floor it meets coming down (the column top, D3 a). Copied from CE TravelingShell.TryShell's arrival
+        // ray (watched, CopyWatches): CE works it out inline over map.Size, which can't be pointed at the ground rect.
         public static bool ShellArrival_Prefix(ref IntVec3 sourceCell, ref LocalTargetInfo target, Map map)
         {
             Layout L = Layout.Of(map);
@@ -602,7 +641,7 @@ namespace IsoRimCEPackZ
             // the distance from gt to the ground rect's edge along dir
             float tx = dir.x > 0f ? (L.width - 0.01f - gt.x) / dir.x : dir.x < 0f ? (gt.x - 0f) / -dir.x : float.MaxValue;
             float tz = dir.y > 0f ? (L.rows - 0.01f - gt.z) / dir.y : dir.y < 0f ? (gt.z - 0f) / -dir.y : float.MaxValue;
-            float dist = Mathf.Min(tx, tz) * 0.75f;
+            float dist = Mathf.Min(tx, tz) * 0.75f;   // Copied from CE TravelingShell.TryShell (watched)
             IntVec3 src = new IntVec3(Mathf.Clamp(Mathf.FloorToInt(gt.x + dir.x * dist), 0, L.width - 1), 0, Mathf.Clamp(Mathf.FloorToInt(gt.z + dir.y * dist), 0, L.rows - 1));
             sourceCell = src;
             target = new LocalTargetInfo(gt);
@@ -629,8 +668,8 @@ namespace IsoRimCEPackZ
             return L.TranslateRows(v, kt, kp);
         }
 
-        // CE: HomingBulletTrajectoryWorker.ReactiveAcceleration, the target in the bullet's frame (only when it is on
-        // another floor; else CE's own runs).
+        // Copied from CE HomingBulletTrajectoryWorker.ReactiveAcceleration (watched, CopyWatches), the target in the bullet's
+        // frame (only when it is on another floor; else CE's own runs).
         public static bool Homing_Prefix(ProjectileCE projectile)
         {
             if (projectile.homingAcceleration <= 0f || projectile.FlightTicks < 3)
@@ -659,8 +698,8 @@ namespace IsoRimCEPackZ
             return false;
         }
 
-        // CE: SmartRocketTrajectoryWorker.ReactiveAcceleration, the target in the rocket's frame (its aim height is moved
-        // with the rocket by Rebase).
+        // Copied from CE SmartRocketTrajectoryWorker.ReactiveAcceleration (watched, CopyWatches), the target in the rocket's
+        // frame (its aim height is moved with the rocket by Rebase).
         public static bool SmartRocket_Prefix(ProjectileCE projectile)
         {
             LocalTargetInfo target = projectile.intendedTarget;

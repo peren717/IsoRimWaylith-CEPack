@@ -15,19 +15,17 @@ namespace IsoRimCEPackZ
     // crossed) and applies CE's own per-cell rule to the cells of every storey the line passes in that column, with CE's
     // ray moved into that storey's frame. A solid plane crossed (a slab, a roof) blocks. Pairs on one floor: CE's own.
     //
-    // CE's per-cell rule is copied from CE 1.6 (2890901044 DLL, Verb_LaunchProjectileCE.CanHitCellFromCellIgnoringRange
-    // and GetHighestCoverAndSmokeForTarget); diff it on CE updates. One change between floors (D6): CE's quick pass
-    // "cover lower than the shot's start height" uses the line's own lowest height in that column, so cover the 3D line
-    // passes over is ignored (as IsoRimZ's height cover).
+    // Copied from CE Verb_LaunchProjectileCE.CanHitCellFromCellIgnoringRange (with its per-cell predicate) and
+    // GetHighestCoverAndSmokeForTarget: CE walks its own line of cells and rays (GenSightCE), which ProjectZ's 3D scope does
+    // not answer, so between floors the pack runs CE's per-cell rule on the 3D walk. Watched (CopyWatches: one warning when
+    // a CE update changes them; mode cereads checks them). One change between floors (D6): CE's quick pass "cover lower than
+    // the shot's start height" uses the line's own lowest height in that column, so cover the 3D line passes over is
+    // ignored (as IsoRimZ's height cover).
     internal static class Sight
     {
         private static readonly List<ProjectZ.Api.LineStep> steps = new List<ProjectZ.Api.LineStep>();
         public static int Walks, Blocked;
         public static Action<string> Debug;   // harness
-
-        // cells over the floor: the aim heights at a cell target on a higher floor (ProjectZ's Los3D aims: head, chest,
-        // waist)
-        private static readonly float[] CellAimsUp = { 1.10f, 0.80f, 0.50f };
 
         public static void Patch(Harmony h)
         {
@@ -46,7 +44,7 @@ namespace IsoRimCEPackZ
                 val = new Vector3(d.x, new CollisionVertical(targetThing).Max, d.z);
                 if (targetThing is Pawn pawn)
                 {
-                    val += pawn.Drawer.leaner.LeanOffset * 0.6f;
+                    val += pawn.Drawer.leaner.LeanOffset * 0.6f;   // Copied from CE CanHitCellFromCellIgnoringRange (watched)
                 }
             }
             else
@@ -56,14 +54,14 @@ namespace IsoRimCEPackZ
                 // every target of the game's own verbs: head, chest, waist): the line then has to rise past that floor's
                 // level over an open cell before the target (an opening, a stairwell, past the slab's edge), not touch
                 // it exactly at the target from under the slab.
-                val.y = up > 0 ? CellAimsUp[aim] / Layout.CellsPerUnit : 0f;
+                val.y = up > 0 ? Layout.AimHeights[aim] / Layout.CellsPerUnit : 0f;
             }
             val = L.TranslateRows(val, kt, ks);
             val.y += up * Layout.S;
             return val;
         }
 
-        // CE: CanHitCellFromCellIgnoringRange, between floors.
+        // CE: CanHitCellFromCellIgnoringRange, between floors (copied from CE, watched: see the class header).
         public static bool CanHitCell_Prefix(Verb_LaunchProjectileCE __instance, Vector3 shotSource, IntVec3 targetLoc, Thing targetThing, ref bool __result)
         {
             Thing caster = __instance.caster;
@@ -134,7 +132,7 @@ namespace IsoRimCEPackZ
                 shotSource.y = sh;
             }
             // (a cell on a higher floor: ProjectZ's aim heights over it in turn, any clear one = a line, as for the game's verbs)
-            int aims = targetThing == null && up > 0 ? CellAimsUp.Length : 1;
+            int aims = targetThing == null && up > 0 ? Layout.AimHeights.Count : 1;
             for (int ai = 0; ai < aims; ai++)
             {
                 Vector3 point = TargetGeometry.Active && TargetGeometry.TryAim(targetThing, verb, Aim.RootOf(verb), out TargetAim aim)
@@ -265,7 +263,8 @@ namespace IsoRimCEPackZ
             return true;
         }
 
-        // CE's per-cell rule (the predicate in CanHitCellFromCellIgnoringRange) on one cell of storey f, the ray in f's frame.
+        // Copied from CE Verb_LaunchProjectileCE.CanHitCellFromCellIgnoringRange's per-cell predicate (watched): on one cell
+        // of storey f, the ray in f's frame.
         private static bool CellClear(Verb_LaunchProjectileCE verb, IntVec3 cell, float lowCE, Ray shotLine, Vector3 src, IntVec3 targetLoc, Thing targetThing,
             Thing caster, Pawn shooterPawn, AimMode? aimMode, LightingTracker lighting, Map map, Layout L)
         {
@@ -300,7 +299,7 @@ namespace IsoRimCEPackZ
             return !b.IntersectRay(shotLine);
         }
 
-        // CE: GetHighestCoverAndSmokeForTarget between floors. The walk runs from the target back to the shooter (CE's
+        // Copied from CE Verb_LaunchProjectileCE.GetHighestCoverAndSmokeForTarget (watched), between floors. The walk runs from the target back to the shooter (CE's
         // order); cover counts in the target's storey only and only where the 3D line passes below its top (D6); smoke
         // anywhere on the line; "roofed" (CE: the target height is capped at 2 under a roof) from roofs over the target's
         // storey on the way.
@@ -365,7 +364,7 @@ namespace IsoRimCEPackZ
                     }
                     if (c.AnyGas(map, GasType.BlindSmoke))
                     {
-                        smokeDensity += 0.7f;
+                        smokeDensity += 0.7f;   // Copied from CE GetHighestCoverAndSmokeForTarget (watched)
                     }
                     if (f != kt)
                     {

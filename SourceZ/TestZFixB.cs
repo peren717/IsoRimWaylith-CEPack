@@ -27,7 +27,7 @@ namespace IsoRimCEPackZ
             {
                 ("b1", BlockerDomes), ("b1d", BlockerLanding), ("b1e", BlockerSameFloor),
                 ("b2a", () => CompCiws(0)), ("b2b", () => CompCiws(1)), ("b2c", () => CompCiws(2)),
-                ("w1", WorldArrival), ("w2", WorldFire),
+                ("w1", WorldArrival), ("w2", WorldFire), ("o1", OwnerMinCollision),
             };
             Check("M13 patch groups landed (other mods' shields, CIWS comp targets)", !PackZ.Failed.Any() && Ciws.On, "failed " + string.Join(",", PackZ.Failed) + ", CIWS " + Ciws.On);
             foreach ((string id, Func<IEnumerator<int>> run) in all)
@@ -44,6 +44,56 @@ namespace IsoRimCEPackZ
             Out("M13 counters: blockers entries " + Blockers.Entries + ", offers " + Blockers.Offers + ", met " + Blockers.Met + " (landing " + Blockers.Landings + "), zone sets " + Blockers.ZoneSets
                 + "; frame views " + FrameView.Moves + "; CIWS comp views " + Ciws.CompViews + ", refused at a plane " + Ciws.CompPlaneRefused + "; test dome intercepts " + domeHits.Count
                 + "; shells to the world " + worldShells.Count + ", attrition blasts " + attrition.Count);
+        }
+
+        // ------------------------------------------------------------------ o1: the owner's answer is followed
+        // A shot from floor 1 down at the ground: its minimum collision distance is CE's own GetMinCollisionDistance (called
+        // through a delegate, no copy). For the check CE's method is patched to answer a marker value; the shot must take it.
+        private const float MinCollisionMarker = 7.77f;
+        private static bool minMark;
+        private static readonly List<(string by, float min)> minSeen = new List<(string, float)>();
+
+        public static void MinCollision_Postfix(ref float __result)
+        {
+            if (minMark)
+            {
+                __result = MinCollisionMarker;
+            }
+        }
+
+        public static void MinSeen_Postfix(ProjectileCE __instance)
+        {
+            if (minMark)
+            {
+                minSeen.Add((__instance.launcher?.ThingID ?? "-", __instance.minCollisionDistance));
+            }
+        }
+
+        private static IEnumerator<int> OwnerMinCollision()
+        {
+            Out("--- o1 CE's own minimum collision distance, between floors");
+            Wipe(105, 172, 145, 214);
+            Slab(120, 176, 130, 188);
+            Pawn target = Target(On(125, 206, 0));
+            Pawn shooter = Colonist(On(125, 182, 1), "Gun_AssaultRifle");
+            Harmony h = new Harmony("peren.isorimwaylith.cepack.testz.o1");
+            MethodInfo launch = typeof(ProjectileCE).GetMethods().First(x => x.Name == "Launch" && x.GetParameters().Length == 3 && x.DeclaringType == typeof(ProjectileCE));
+            h.Patch(AccessTools.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) }), postfix: new HarmonyMethod(typeof(TestZ), nameof(MinCollision_Postfix)));
+            h.Patch(launch, postfix: new HarmonyMethod(typeof(TestZ), nameof(MinSeen_Postfix)) { priority = Priority.Last });
+            yield return 30;
+            minSeen.Clear();
+            minMark = true;
+            int t0 = Find.TickManager.TicksGame;
+            Order(shooter, target);
+            yield return 300;
+            minMark = false;
+            h.UnpatchAll(h.Id);
+            List<Shot> launched = By(shooter, Launches, t0);
+            List<float> mine = minSeen.Where(s => s.by == shooter.ThingID).Select(s => s.min).ToList();
+            Out("  launched " + launched.Count + ", minimum collision distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))));
+            Check("o1 a shot between floors takes CE's own (patched) minimum collision distance", launched.Count > 0 && mine.Count > 0 && mine.All(v => Mathf.Abs(v - MinCollisionMarker) < 1e-4f),
+                "launched " + launched.Count + ", distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))) + " (marker " + MinCollisionMarker + ")");
+            Gone(shooter, target);
         }
 
         // ------------------------------------------------------------------ the test shield blocker (an "other mod")

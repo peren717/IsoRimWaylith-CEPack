@@ -28,7 +28,9 @@ namespace IsoRimCEPackZ
         private static IEnumerator<int> CeReads()
         {
             Out("--- CE reads snapshot");
-            string file = Path.Combine(ModLister.GetActiveModWithIdentifier("Peren.IsoRimWaylith.CEPackWT3", true)?.RootDir.FullName ?? ModLister.GetActiveModWithIdentifier("Peren.IsoRimWaylith.CEPack", true)?.RootDir.FullName ?? "", "Docs", "CeReads.tsv");
+            // (the folder of the mod that loaded this assembly: any worktree or the released pack)
+            ModContentPack own = LoadedModManager.RunningMods.FirstOrDefault(m => m.assemblies.loadedAssemblies.Contains(typeof(TestZ).Assembly));
+            string file = Path.Combine(own?.RootDir ?? "", "Docs", "CeReads.tsv");
             Dictionary<string, (int count, string note)> known = new Dictionary<string, (int, string)>();
             if (File.Exists(file))
             {
@@ -77,7 +79,26 @@ namespace IsoRimCEPackZ
             }
             Check("CE reads: no read of a position, distance or shift report field outside the allow-list", known.Count > 0 && added.Count == 0 && more.Count == 0,
                 methods + " methods scanned, " + now.Count + " rows, file " + known.Count + " rows (" + file + "), new " + added.Count + ", more " + more.Count + ", fewer " + less.Count);
+            CeCopies();
             yield break;
+        }
+
+        // The pack's copies of CE code (CopyWatches): every copied CE method is found and hashes as the copy expects (IsoRim
+        // Api 70 CopyHash). The hashes now go to cecopies_now.tsv (copy, CE method, hash now, expected).
+        private static void CeCopies()
+        {
+            Out("--- CE methods the pack copies");
+            StringBuilder tsv = new StringBuilder();
+            foreach (CopyWatches.Row r in CopyWatches.Rows)
+            {
+                MethodBase m = CopyWatches.Found(r);
+                string now = m != null ? CopyWatches.HashNow(m) : null;
+                string want = CopyWatches.Expected(r);
+                string name = m == null ? "(not found)" : m.DeclaringType?.FullName + "." + m.Name;
+                tsv.AppendLine(r.Copy + "\t" + name + "\t" + (now ?? "-") + "\t" + want);
+                Check("CE copy " + r.Copy + ": the CE method is unchanged", m != null && now != null && now == want, name + " hash " + (now ?? "-") + ", expected " + want);
+            }
+            File.WriteAllText(Path.Combine(outDir, "cecopies_now.tsv"), tsv.ToString());
         }
 
         // Method and read -> count, over the CE types a shot's aim goes through.

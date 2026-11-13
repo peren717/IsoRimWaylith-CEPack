@@ -14,6 +14,8 @@ namespace IsoRimCEPackZ
     // storeys between) and CE's lift over cover for the cover on the thrower's own storey (the 3D walk's cells there; a
     // parapet in front of a thrower upstairs); TryCastShot's heading comes over the ground through the frame transpiler
     // (Aim). The grenade is then an ordinary CE projectile and crosses the floor planes through Frames.
+    // FindAngle_Prefix is copied from CE Verb_ThrowGrenade.FindAngle (its raw distance and its own line of cells can't be
+    // answered by ProjectZ's 3D scope); watched (CopyWatches).
     internal static class Throws
     {
         private static readonly List<ProjectZ.Api.LineStep> steps = new List<ProjectZ.Api.LineStep>();
@@ -93,7 +95,7 @@ namespace IsoRimCEPackZ
                 }
                 if (c.AnyGas(map, GasType.BlindSmoke))
                 {
-                    smokeDensity += 0.7f;
+                    smokeDensity += 0.7f;   // Copied from CE Verb_ThrowGrenade.FindAngle (watched), as the lift below
                 }
                 roofed = roofed || map.roofGrid.RoofAt(c) != null;
                 Thing t2 = c.GetFirstPawn(map) ?? c.GetCover(map);

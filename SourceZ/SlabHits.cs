@@ -26,6 +26,9 @@ namespace IsoRimCEPackZ
     // threshold, so the game's terrain step never weighs a blast's damage there.
     internal static class SlabHits
     {
+        // The pack's own tuning value (user decision 2026-10-30), not read from the game: vanilla's Bomb damage (Core
+        // Damages_Misc.xml defaultDamage 50). The live DamageDefOf.Bomb.defaultDamage can't stand in for it: CE patches it
+        // to 156 (CE Patches/Core/DamageDefs/Damages_LocalInjury.xml), which would let CE blasts break armoured slabs (55).
         public const int VanillaCap = 50;
 
         // Harness counters: slab cells judged (capped), ring cells dropped.

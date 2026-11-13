@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using CombatExtended;
 using UnityEngine;
@@ -29,6 +30,18 @@ namespace IsoRimCEPackZ
 
         // Cells per CE height unit.
         public static float CellsPerUnit => ProjectZ.Api.WallHeight / CollisionVertical.WallCollisionHeight;
+
+        // ProjectZ's aim heights on a target cell, in cells over its floor, in the order tried (head, chest, waist):
+        // ProjectZ Api 10 AimHeights, read once.
+        public static IReadOnlyList<float> AimHeights => aimHeights ??= ProjectZ.Api.Version >= 10 ? ReadAimHeights() : FallbackAimHeights;
+
+        private static IReadOnlyList<float> aimHeights;
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static IReadOnlyList<float> ReadAimHeights() => ProjectZ.Api.AimHeights;
+
+        // Fallback for a ProjectZ older than Api 10 (no getter there): its Los3D aim heights of that time.
+        private static readonly float[] FallbackAimHeights = { 1.10f, 0.80f, 0.50f };
 
         // The layout of a map with floors; null without floors (or without a map).
         public static Layout Of(Map map)

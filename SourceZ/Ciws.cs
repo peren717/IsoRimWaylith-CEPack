@@ -149,6 +149,8 @@ namespace IsoRimCEPackZ
 
         // CE walks PredictPositions(target, warmup + 60).Skip(warmup) (and (target, warmup + 1).Skip(warmup) for instant
         // shots): the skipped warmup ticks are only translated, the line is checked from there on.
+        private const int CeWindowTicks = 60;   // Copied from CE VerbCIWS<T>.TryFindCEShootLineFromTo, a local there (watched, CopyWatches)
+
         private static IEnumerable<Vector3> Seen(IEnumerable<Vector3> src, VerbCIWS verb, Thing caster, Thing target, Map map, Layout L, int ks, int kt, int maxTicks)
         {
             bool moved = ks != kt;
@@ -160,7 +162,7 @@ namespace IsoRimCEPackZ
             float S = Layout.S;
             float range = verb.verbProps.range;
             Vector3 c = caster.Position.ToVector3Shifted();
-            int first = maxTicks <= 1 ? int.MaxValue : Mathf.Max(0, maxTicks - 60);
+            int first = maxTicks <= 1 ? int.MaxValue : Mathf.Max(0, maxTicks - CeWindowTicks);
             int i = 0;
             bool overhead = target.def.projectile?.flyOverhead ?? true;
             float aPrev = float.NaN;

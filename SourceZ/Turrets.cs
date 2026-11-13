@@ -43,7 +43,9 @@ namespace IsoRimCEPackZ
             On = true;
         }
 
-        // CE: Building_TurretGunCE.OrderAttack, for a target on another floor.
+        // Copied from CE Building_TurretGunCE.OrderAttack (watched, CopyWatches), for a target on another floor: CE measures
+        // (targ.Cell - Position).LengthHorizontal, which neither ProjectZ's 3D scope nor the pack's Scope can answer as the
+        // 3D distance (an IntVec3 difference has no height).
         public static bool OrderAttack_Prefix(Building_TurretGunCE __instance, LocalTargetInfo targ)
         {
             Map map = __instance.Map;
