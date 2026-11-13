@@ -400,11 +400,38 @@ namespace IsoRimCEPackZ
             Applied++;
         }
 
+        // A key part failed in play (a CE update met at run time): from now on shots between floors are refused and the Api
+        // parts are off, as after a key group failed at startup (or ProjectZ's parts were off: CheckParts). One warning.
+        internal static void FailInPlay(string part, string reason)
+        {
+            if (!Healthy)
+            {
+                return;
+            }
+            Healthy = false;
+            Failed.Add(part);
+            PlacementQuery.Disable();
+            TargetGeometry.Disable();
+            SurfaceExplosions.Disable();
+            Log.Warning(Tag + part + " failed in play (" + reason + "): shots between floors are refused from now on, shots on one floor are as Combat Extended has them.");
+        }
+
         // A delegate that calls CE's instance method m itself, not an override (IL call, not callvirt; Harmony's patches on
-        // m still run): the instance first, then m's parameters. The delegate type must match that exactly.
+        // m still run): the instance first, then m's parameters. The delegate type must match that exactly (checked: a
+        // class's closed, non-static method; else ArgumentException).
         internal static D NonVirtual<D>(MethodInfo m) where D : Delegate
         {
-            Type[] args = new[] { m.DeclaringType }.Concat(m.GetParameters().Select(p => p.ParameterType)).ToArray();
+            Type owner = m?.DeclaringType;
+            if (m == null || m.IsStatic || owner == null || owner.IsValueType || owner.ContainsGenericParameters || m.ContainsGenericParameters)
+            {
+                throw new ArgumentException("NonVirtual: not a closed instance method of a class: " + owner?.Name + "." + m?.Name);
+            }
+            Type[] args = new[] { owner }.Concat(m.GetParameters().Select(p => p.ParameterType)).ToArray();
+            MethodInfo invoke = typeof(D).GetMethod("Invoke");
+            if (invoke.ReturnType != m.ReturnType || !invoke.GetParameters().Select(p => p.ParameterType).SequenceEqual(args))
+            {
+                throw new ArgumentException("NonVirtual: " + typeof(D).Name + " does not match " + owner.Name + "." + m.Name);
+            }
             DynamicMethod dm = new DynamicMethod("IsoRimCEPackZ_call_" + m.Name, m.ReturnType, args, typeof(PackZ).Module, true);
             ILGenerator il = dm.GetILGenerator();
             for (int i = 0; i < args.Length; i++)

@@ -50,16 +50,22 @@ namespace IsoRimCEPackZ
             else
             {
                 val = targetLoc.ToVector3Shifted();
-                // CE aims a cell at its ground. A cell on a higher floor is aimed at ProjectZ's aim heights over it (as
-                // every target of the game's own verbs: head, chest, waist): the line then has to rise past that floor's
-                // level over an open cell before the target (an opening, a stairwell, past the slab's edge), not touch
-                // it exactly at the target from under the slab.
-                val.y = up > 0 ? Layout.AimHeights[aim] / Layout.CellsPerUnit : 0f;
+                val.y = CellAimHeight(up, aim) / Layout.CellsPerUnit;
             }
             val = L.TranslateRows(val, kt, ks);
             val.y += up * Layout.S;
             return val;
         }
+
+        // The one rule for aiming at a cell target on another floor (Sight, Aim.Spotting), up = target floor - shooter floor.
+        // CE aims a cell at its ground. A cell on a higher floor is aimed at ProjectZ's aim heights over it in turn (as every
+        // target of the game's own verbs: head, chest, waist; any clear one = a line): the line then has to rise past that
+        // floor's level over an open cell before the target (an opening, a stairwell, past the slab's edge), not touch it
+        // exactly at the target from under the slab. A cell on a lower floor keeps CE's ground aim.
+        internal static int CellAims(int up) => up > 0 ? Layout.AimHeights.Count : 1;
+
+        // Aim i of CellAims(up), in cells over the target cell's floor.
+        internal static float CellAimHeight(int up, int i) => up > 0 ? Layout.AimHeights[i] : 0f;
 
         // CE: CanHitCellFromCellIgnoringRange, between floors (copied from CE, watched: see the class header).
         public static bool CanHitCell_Prefix(Verb_LaunchProjectileCE __instance, Vector3 shotSource, IntVec3 targetLoc, Thing targetThing, ref bool __result)
@@ -132,7 +138,7 @@ namespace IsoRimCEPackZ
                 shotSource.y = sh;
             }
             // (a cell on a higher floor: ProjectZ's aim heights over it in turn, any clear one = a line, as for the game's verbs)
-            int aims = targetThing == null && up > 0 ? Layout.AimHeights.Count : 1;
+            int aims = targetThing == null ? CellAims(up) : 1;
             for (int ai = 0; ai < aims; ai++)
             {
                 Vector3 point = TargetGeometry.Active && TargetGeometry.TryAim(targetThing, verb, Aim.RootOf(verb), out TargetAim aim)

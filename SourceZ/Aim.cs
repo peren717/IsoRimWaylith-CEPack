@@ -70,7 +70,15 @@ namespace IsoRimCEPackZ
             }
             PackZ.Postfix(h, ByName(v, "GetTargetHeight", 4), typeof(Aim), nameof(TargetHeight_Postfix));
             PackZ.Prefix(h, ByName(v, "AdjustShotHeight", 3), typeof(Aim), nameof(AdjustShotHeight_Prefix));
-            ceReport = PackZ.NonVirtual<Func<Verb_LaunchProjectileCE, LocalTargetInfo, IntVec3, ShiftVecReport>>(ByName(v, "ShiftVecReportFor", 2));
+            try
+            {
+                ceReport = PackZ.NonVirtual<Func<Verb_LaunchProjectileCE, LocalTargetInfo, IntVec3, ShiftVecReport>>(ByName(v, "ShiftVecReportFor", 2));
+            }
+            catch (Exception e)
+            {
+                // (only the light and weather of shots between floors are then CE's for the shooter-frame cell)
+                PackZ.Once("cereport", "Combat Extended's ShiftVecReportFor could not be bound (" + PackZ.Reason(e) + "): light and weather of shots between floors are read at the shooter-frame cell.");
+            }
             PackZ.Postfix(h, ByName(v, "ShiftVecReportFor", 2), typeof(Aim), nameof(Report_Postfix));
             PackZ.Transpiler(h, ByName(typeof(Verb_ShootMortarCE), "ShiftVecReportFor", 2), typeof(Aim), nameof(Spotting_Transpiler));
             PackZ.Prefix(h, ByName(v, "ShotAngle", 2), typeof(Aim), nameof(ShotAngle_Prefix));
@@ -764,6 +772,10 @@ namespace IsoRimCEPackZ
             {
                 return;
             }
+            if (ceReport == null)
+            {
+                return;
+            }
             ShiftVecReport real = ceReport(__instance, target, target.Cell);   // (this postfix returns at once on that call)
             if (real == null)
             {
@@ -807,8 +819,8 @@ namespace IsoRimCEPackZ
         public static int SpottingChecks;
 
         // The spotter's sight from the mortar to the target: GenSight on one floor, ProjectZ's 3D line between floors, from
-        // the spotter's eyes to the target's middle (heights from CE's CollisionVertical; a cell target: ProjectZ's aim
-        // heights over it in turn, any clear one = seen, as Sight).
+        // the spotter's eyes to the target's middle (heights from CE's CollisionVertical; a cell target: Sight's one rule for
+        // aiming at a cell on another floor, Sight.CellAims).
         public static bool Spotting(IntVec3 start, IntVec3 end, Map map, bool skipFirstCell, Func<IntVec3, bool> validator, int halfXOffset, int halfZOffset,
             Verb_ShootMortarCE verb, LocalTargetInfo target)
         {
@@ -827,10 +839,10 @@ namespace IsoRimCEPackZ
                         CollisionVertical cv = new CollisionVertical(target.Thing);
                         return ProjectZ.Api.LineClear3D(start, eye, end, (cv.Min + cv.Max) / 2f * k, map, validator);
                     }
-                    IReadOnlyList<float> aims = Layout.AimHeights;
-                    for (int i = 0; i < aims.Count; i++)
+                    int up = kt - ks;
+                    for (int i = 0; i < Sight.CellAims(up); i++)
                     {
-                        if (ProjectZ.Api.LineClear3D(start, eye, end, aims[i], map, validator))
+                        if (ProjectZ.Api.LineClear3D(start, eye, end, Sight.CellAimHeight(up, i), map, validator))
                         {
                             return true;
                         }
@@ -841,10 +853,11 @@ namespace IsoRimCEPackZ
             return GenSight.LineOfSight(start, end, map, skipFirstCell, validator, halfXOffset, halfZOffset);
         }
 
-        // The spotter's eyes in CE units: CE's shot height of the pawn manning the mortar, else the mortar verb's own.
+        // The spotter's eyes in CE units: CE's shot height of the verb's ShooterPawn (CE's own pick: the caster pawn or the
+        // turret's operator), else the mortar verb's own.
         private static float SpotterHeight(Verb_ShootMortarCE verb)
         {
-            Pawn crew = verb.caster?.TryGetComp<CompMannable>()?.ManningPawn;
+            Pawn crew = verb.ShooterPawn;
             return crew != null ? new CollisionVertical(crew).shotHeight : verb.ShotHeight;
         }
 

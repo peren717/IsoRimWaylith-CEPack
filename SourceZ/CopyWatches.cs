@@ -9,10 +9,11 @@ using Verse;
 
 namespace IsoRimCEPackZ
 {
-    // The pack's copies of Combat Extended code, in one list. A copy stays only where calling CE's own method can't work
-    // between floors: CE walks its own line of cells or rays, intersects with map.Size, or measures an IntVec3 difference,
-    // none of which ProjectZ's 3D scope (Api 10) answers. Each row: the CE method copied, the pack's copy, and the IL hash
-    // of the CE build the copy follows (IsoRim Api 70 CopyHash; CE DLL md5 de5aa969).
+    // The pack's copies of Combat Extended code, and the CE methods it calls on an assumption, in one list. A copy stays
+    // only where calling CE's own method can't work between floors: CE walks its own line of cells or rays, intersects with
+    // map.Size, or measures an IntVec3 difference, none of which ProjectZ's 3D scope (Api 10) answers. Each row: the CE
+    // method, the pack's code that relies on it, and the IL hash of the CE build it follows (IsoRim Api 70 CopyHash; CE
+    // DLL md5 de5aa969).
     //  - At startup every row is registered with IsoRim's Api.WatchCopy (IsoRim Api 70 or later; older: nothing): one
     //    warning per CE method a CE update changed, naming the copy to review.
     //  - Mode cereads checks every row against CE now (TestCeReads) and writes the hashes now to cecopies_now.tsv.
@@ -24,6 +25,7 @@ namespace IsoRimCEPackZ
             public string Copy;              // the pack's copy (for the warning)
             public Func<MethodBase> Find;    // the CE method (null: not found)
             public string Hash;              // its CopyHash when the copy was last checked
+            public string About = "copied from Combat Extended";   // what the pack relies on (for the warning)
         }
 
         internal static readonly Row[] Rows =
@@ -42,13 +44,16 @@ namespace IsoRimCEPackZ
             new Row { Copy = "WorldShells.ExitOnBand", Find = () => Method(typeof(CE_Utility), "ExitCell", 2), Hash = "da9cc609b81c15ee" },
             new Row { Copy = "WorldShells.OrderWorld_Prefix", Find = () => Method(typeof(Building_TurretGunCE), "TryOrderAttackWorldTile", 2), Hash = "083dd4af960f201c" },
             new Row { Copy = "WorldShells.RandomCell", Find = () => Method(typeof(ShellingUtility), "GetRandomImpactCell", 0), Hash = "1d4a0d5d2ff1a28c" },
+            // not a copy: called non-virtually with a null verb, so it must not read instance state
+            new Row { Copy = "Frames.FixMinCollision", Find = () => Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", 1), Hash = "a35f97cfa2fb2078",
+                About = "calls Combat Extended's method non-virtually with a null verb: it must not read instance state" },
         };
 
         // The hash a row is checked against. Harness: -cepackfault=watchcopy gives the first row a wrong one (one IsoRim
         // warning, and mode cereads fails that row).
         internal static string Expected(Row r) => Fault.Is("watchcopy") && r == Rows[0] ? "0000000000000000" : r.Hash;
 
-        internal static string Note(Row r) => "IsoRim CE Pack, " + r.Copy + " (copied from Combat Extended)";
+        internal static string Note(Row r) => "IsoRim CE Pack, " + r.Copy + " (" + r.About + ")";
 
         // Registers every row with IsoRim's watch (IsoRim Api 70; an older IsoRim: nothing). Never throws.
         public static void Register()

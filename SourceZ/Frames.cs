@@ -333,7 +333,7 @@ namespace IsoRimCEPackZ
             }
             if (minCollision == null)
             {
-                return;
+                return;   // (failed in play: shots between floors are refused)
             }
             Vector3 t = L.TranslateRows(p.intendedTarget.Cell.ToVector3Shifted(), kt, ks);
             float dist = new Vector2(t.x - o.x, t.z - o.y).magnitude;
@@ -344,17 +344,19 @@ namespace IsoRimCEPackZ
             }
             catch (Exception e)
             {
+                // (CE's method now reads its verb: a CE update met in play; the raw-row value CE set is wrong between
+                // floors, so shots between floors are refused from now on, as after a key group failed)
                 minCollision = null;
-                PackZ.Once("mincollision", "Combat Extended's GetMinCollisionDistance could not be called (" + PackZ.Reason(e) + "): shots between floors keep CE's own minimum collision distance.");
+                PackZ.FailInPlay("Flight (Combat Extended's GetMinCollisionDistance)", PackZ.Reason(e));
                 return;
             }
             PackZ.Changed++;
             p.minCollisionDistance = min;
         }
 
-        // CE's own Verb_LaunchProjectileCE.GetMinCollisionDistance(distance): a protected helper that reads no verb state,
-        // called without a verb through a non-virtual delegate. Null when CE no longer has it (one warning; CE's own value
-        // then stays between floors).
+        // CE's own Verb_LaunchProjectileCE.GetMinCollisionDistance(distance), called non-virtually with a null verb: it reads
+        // no instance state (CopyWatches row Frames.FixMinCollision warns when CE changes it). Bound in the flight group: if
+        // it is missing, the group fails and shots between floors are refused.
         private static Func<Verb_LaunchProjectileCE, float, float> minCollision;
 
         private static void BindMinCollision()
@@ -362,17 +364,9 @@ namespace IsoRimCEPackZ
             MethodInfo m = AccessTools.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) });
             if (m == null || m.IsStatic || m.ReturnType != typeof(float))
             {
-                PackZ.Once("mincollision", "Combat Extended's Verb_LaunchProjectileCE.GetMinCollisionDistance(float) was not found: shots between floors keep CE's own minimum collision distance.");
-                return;
+                throw new MissingMethodException("Verb_LaunchProjectileCE.GetMinCollisionDistance(float)");
             }
-            try
-            {
-                minCollision = PackZ.NonVirtual<Func<Verb_LaunchProjectileCE, float, float>>(m);
-            }
-            catch (Exception e)
-            {
-                PackZ.Once("mincollision", "Combat Extended's GetMinCollisionDistance could not be bound (" + PackZ.Reason(e) + "): shots between floors keep CE's own minimum collision distance.");
-            }
+            minCollision = PackZ.NonVirtual<Func<Verb_LaunchProjectileCE, float, float>>(m);
         }
 
         // ------------------------------------------------------------------ roofs
