@@ -123,14 +123,14 @@ namespace IsoRimCEPack
         private static int I(string s) => int.Parse(s);
 
         // cepack:ammobind: every CE AmmoDef (all mods) with how IsoRim bound it (IsoRim's HowBound, read by reflection: test
-        // only), its entry, the pack rule's answer, stack limit, texture and ammoClass -> <save data>/CEPackAmmoBind.tsv, and
-        // the counts to the log.
+        // only), its entry, the pack rule's answer, stack limit, texture and ammoClass, and the texture it is shipped with if
+        // another mod re-textured it -> <save data>/CEPackAmmoBind.tsv, and the counts to the log.
         private static void AmmoBind()
         {
             Type lib = AccessTools.TypeByName("IsoRim.ModelLibrary");
             System.Reflection.MethodInfo howM = lib != null ? AccessTools.Method(lib, "HowBound", new[] { typeof(ThingDef) }) : null;
             System.Reflection.MethodInfo getM = lib != null ? AccessTools.Method(lib, "TryGet") : null;
-            System.Text.StringBuilder sb = new System.Text.StringBuilder("defName\tpack\tstackLimit\ttexPath\tammoClass\tmenuHidden\thow\tentry\thasModel\truleAnswer\n");
+            System.Text.StringBuilder sb = new System.Text.StringBuilder("defName\tpack\tstackLimit\ttexPath\tammoClass\tmenuHidden\thow\tentry\thasModel\truleAnswer\tshippedTexPath\n");
             System.Collections.Generic.Dictionary<string, int> byHow = new System.Collections.Generic.Dictionary<string, int>();
             int n = 0, bound = 0;
             foreach (ThingDef d in DefDatabase<ThingDef>.AllDefs.OrderBy(x => x.defName))
@@ -166,13 +166,15 @@ namespace IsoRimCEPack
                 sb.Append(d.defName).Append('\t').Append(d.modContentPack?.PackageId ?? "").Append('\t').Append(d.stackLimit).Append('\t')
                     .Append(d.graphicData?.texPath ?? "").Append('\t').Append(ad.ammoClass?.defName ?? "").Append('\t').Append(ad.menuHidden)
                     .Append('\t').Append(how ?? "").Append('\t').Append(entry).Append('\t').Append(has ? 1 : 0).Append('\t')
-                    .Append(AmmoRule.Answer(d) ?? "").Append('\n');
+                    .Append(AmmoRule.Answer(d) ?? "").Append('\t').Append(AmmoRule.ShippedTexPath(d) ?? "").Append('\n');
             }
             System.IO.File.WriteAllText(System.IO.Path.Combine(GenFilePaths.SaveDataFolderPath, "CEPackAmmoBind.tsv"), sb.ToString());
             Log.Message(Pack.Tag + "probe ammobind: " + n + " ammo defs, " + bound + " with a model; by how: "
                 + string.Join(", ", byHow.OrderBy(x => x.Key).Select(x => x.Key + " " + x.Value))
                 + "; rule map: generic " + AmmoRule.Generic + ", calibre " + AmmoRule.Calibre + " (by own folder " + AmmoRule.ByFolder
                 + "), fallback " + AmmoRule.Fallback + ", unmatched left to graphicPath " + AmmoRule.Unmatched
+                + "; re-textured " + AmmoRule.Retextured + " (given their shipped art's model by re-point " + AmmoRule.Repointed + ")"
+                + "; turret models refitted " + TurretModels.Refitted
                 + "; CE generic ammo " + (Controller.settings != null && Controller.settings.GenericAmmo));
         }
 

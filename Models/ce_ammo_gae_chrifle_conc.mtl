@@ -1,0 +1,27 @@
+# IsoRim Waylith - CE Pack: ammo colours for chrifle / conc, sampled from The Generic Ammo Experience's and Combat Extended's textures (x1.08 lift).
+newmtl ceammo_head
+Kd 0.610 0.136 0.169
+newmtl ceammo_headLight
+Kd 0.745 0.237 0.237
+newmtl ceammo_label
+Kd 0.508 0.136 0.136
+newmtl ceammo_crate
+Kd 0.610 0.136 0.169
+map_Kd IsoRim/Swatches/Metal
+newmtl ceammo_crateDark
+Kd 0.407 0.102 0.102
+map_Kd IsoRim/Swatches/Metal
+newmtl ceammo_case
+Kd 0.712 0.712 0.644
+map_Kd IsoRim/Swatches/Metal
+newmtl ceammo_base
+Kd 0.203 0.203 0.203
+newmtl ceammo_tip
+Kd 0.203 0.203 0.203
+newmtl ceammo_mag
+Kd 0.407 0.407 0.407
+map_Kd IsoRim/Swatches/Metal
+newmtl ceammo_panel
+Kd 1.000 1.000 1.000
+newmtl ceammo_latch
+Kd 0.407 0.407 0.407

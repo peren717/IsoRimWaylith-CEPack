@@ -23,6 +23,12 @@ namespace IsoRimCEPack
     // The mapping is read from the original set links: on the rule's first call or, if CE's generalizer runs first (generic
     // ammo option on), just before it rewrites the links (prefix below). Older IsoRim (no Api 42): no rule; the graphicPath
     // patch still gives things drawn with a generic CE texture that texture's look.
+    // Every texture folder above is the def's SHIPPED art when the pack has a model for it (ShippedArt, AmmoRule.ArtOf): the
+    // texPath its own mod's Defs give it, not one another mod patched in. The models were made after CE's art, so a def
+    // re-pointed from it to other art (e.g. "The Generic Ammo Experience for Combat Extended") keeps its model in 3D while the
+    // 2D view shows the new art. A re-pointed def the set links do not cover gets the model graphicPath gave its shipped art
+    // (AmmoLooks.ByArt), as before the re-point. A def shipped with art the pack has no model for keys on its current texPath,
+    // as before. Without a patch that re-points CE's ammo art shipped and current are the same: every def binds as before.
     public class CEPackMod : Mod
     {
         public static CEPackSettings Settings;
@@ -50,6 +56,15 @@ namespace IsoRimCEPack
             catch (Exception e)
             {
                 Log.Error(Pack.Tag + "Ammo model rule not added (CE ammo keeps its texture-path models): " + e);
+                return;
+            }
+            try
+            {
+                ShippedArt.Register();
+            }
+            catch (Exception e)
+            {
+                Log.Warning(Pack.Tag + "Ammo defs' own textures not read (a def another mod re-textured loses its model): " + e);
             }
         }
 
@@ -78,10 +93,11 @@ namespace IsoRimCEPack
     public static class AmmoRule
     {
         private static Dictionary<ThingDef, string> map;
+        private static Dictionary<ThingDef, string> shipped;   // ammo defs whose texPath another mod changed -> their shipped one
         private static bool failed;
 
         // Counts for the harness (cepack:ammobind).
-        internal static int Generic, Calibre, ByFolder, Fallback, Unmatched;
+        internal static int Generic, Calibre, ByFolder, Fallback, Unmatched, Retextured, Repointed;
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal static void Register()
@@ -114,10 +130,30 @@ namespace IsoRimCEPack
             return def != null && map.TryGetValue(def, out name) ? name : null;
         }
 
+        // The shipped texPath of a def another mod re-textured (null for any other def), for the harness.
+        internal static string ShippedTexPath(ThingDef def)
+        {
+            Build();
+            string p;
+            return def != null && shipped != null && shipped.TryGetValue(def, out p) ? p : null;
+        }
+
         private static string TexPath(ThingDef d)
         {
-            string p = d?.graphicData?.texPath;
+            return Normal(d?.graphicData?.texPath);
+        }
+
+        internal static string Normal(string p)
+        {
             return p == null ? null : p.Replace('\\', '/').Trim('/');
+        }
+
+        // The texture folder every look of the rule is keyed on (the one place): the art the def is shipped with if another mod
+        // re-textured it away from art the pack has a model for (ShippedArt.Retextured), else its current texPath.
+        private static string ArtOf(ThingDef d)
+        {
+            string p;
+            return d != null && shipped != null && shipped.TryGetValue(d, out p) ? p : TexPath(d);
         }
 
         private static string Family(string texPath)   // "Things/Ammo/<family>/..."
@@ -132,7 +168,7 @@ namespace IsoRimCEPack
 
         private static string LookOf(AmmoDef d)
         {
-            string p = TexPath(d);
+            string p = ArtOf(d);
             if (p == null)
             {
                 return null;
@@ -164,6 +200,7 @@ namespace IsoRimCEPack
             }
             try
             {
+                shipped = ShippedArt.Retextured();
                 Dictionary<AmmoDef, List<Candidate>> calibre = new Dictionary<AmmoDef, List<Candidate>>();
                 Dictionary<AmmoDef, AmmoSetDef> unmatched = new Dictionary<AmmoDef, AmmoSetDef>();
                 HashSet<AmmoDef> generic = new HashSet<AmmoDef>();
@@ -203,10 +240,11 @@ namespace IsoRimCEPack
                         {
                             calibre[a] = list = new List<Candidate>();
                         }
-                        list.Add(new Candidate { look = look, family = Family(TexPath(cp.ammo)) });
+                        list.Add(new Candidate { look = look, family = Family(ArtOf(cp.ammo)) });
                     }
                 }
-                Generic = Calibre = ByFolder = Fallback = Unmatched = 0;
+                Generic = Calibre = ByFolder = Fallback = Unmatched = Repointed = 0;
+                Retextured = shipped != null ? shipped.Count : -1;
                 foreach (AmmoDef g in generic)
                 {
                     string look = LookOf(g);
@@ -231,7 +269,7 @@ namespace IsoRimCEPack
                     }
                     if (mixed)
                     {
-                        string own = Family(TexPath(kv.Key));
+                        string own = Family(ArtOf(kv.Key));
                         for (int i = 0; i < c.Count; i++)
                         {
                             if (string.Equals(c[i].family, own, StringComparison.OrdinalIgnoreCase))
@@ -251,11 +289,14 @@ namespace IsoRimCEPack
                     {
                         continue;   // matched in another set
                     }
-                    string own = TexPath(kv.Key);
-                    if (own != null && (AmmoLooks.Generic.ContainsKey(own) || AmmoLooks.NonGeneric.Contains(own)))
+                    string own = ArtOf(kv.Key);
+                    if (own != null && AmmoLooks.ByArt.ContainsKey(own))
                     {
-                        Unmatched++;   // its own CE texture has a look: graphicPath binds it
-                        continue;
+                        if (shipped == null || !shipped.ContainsKey(kv.Key))
+                        {
+                            Unmatched++;   // its own CE texture has a look: graphicPath binds it
+                        }
+                        continue;   // (re-textured: the re-point step below gives it that look)
                     }
                     AmmoLink fmj = kv.Value.ammoTypes.Find(x => x?.ammo?.ammoClass != null && x.ammo.ammoClass.defName == "FullMetalJacket")
                         ?? (kv.Value.ammoTypes.Count > 0 ? kv.Value.ammoTypes[0] : null);
@@ -266,13 +307,118 @@ namespace IsoRimCEPack
                         Fallback++;
                     }
                 }
+                // Re-pointed: a re-textured def the steps above leave to graphicPath (LaserChargePack, a generic look's
+                // unmatched def) gets the ModelDef graphicPath gives its shipped art, which its new texPath no longer reaches.
+                if (shipped != null)
+                {
+                    foreach (KeyValuePair<ThingDef, string> kv in shipped)
+                    {
+                        string model;
+                        if (!map.ContainsKey(kv.Key) && AmmoLooks.ByArt.TryGetValue(kv.Value, out model))
+                        {
+                            map[kv.Key] = model;
+                            Repointed++;
+                        }
+                    }
+                }
             }
             catch (Exception e)
             {
                 failed = true;
+                shipped = null;
                 map = new Dictionary<ThingDef, string>();
                 Log.Error(Pack.Tag + "Reading CE's generic ammo table failed (CE ammo keeps its texture-path models): " + e);
             }
+        }
+    }
+
+    // The art each ammo def is shipped with: its graphicData/texPath as its own mod's Defs write it, before any mod's patches.
+    // A prefix on LoadedModManager.ApplyPatches (Priority.First: before any other mod's prefix there, which could apply
+    // patches early) reads the unified def XML the game has just built from every mod's Defs files, right before the first
+    // patch runs (the pack's Mod constructor, which adds the prefix, runs before the game loads the def XML, so this is the
+    // same whatever the load order). Only art the pack has a model for is kept (AmmoLooks.ByArt). Per defName the last node
+    // counts, as in the game: a later node of the same defName with other art, or none of its own (it inherits its texPath
+    // from a parent; none of CE's ammo does), drops the earlier entry, so that def keeps its current texPath (the rule as
+    // before). A def made in code has no node and keeps its current texPath too. AmmoRule takes the result once (Retextured),
+    // and the table is dropped. Fails soft: no read, every def keeps its current texPath. Read from the game, not copied: no
+    // list of CE's texPaths is kept in the pack (AmmoLooks lists only the folders the pack has models for).
+    internal static class ShippedArt
+    {
+        private static Dictionary<string, string> byDefName;   // ThingDef defName -> own texPath with a model, until AmmoRule takes it
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void Register()
+        {
+            new Harmony("peren.isorimwaylith.cepack.shippedart").Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ApplyPatches)),
+                prefix: new HarmonyMethod(typeof(ShippedArt), nameof(ApplyPatches_Prefix)) { priority = Priority.First });
+        }
+
+        public static void ApplyPatches_Prefix(XmlDocument xmlDoc)
+        {
+            try
+            {
+                Dictionary<string, string> read = new Dictionary<string, string>();
+                XmlElement root = xmlDoc?.DocumentElement;
+                if (root != null)
+                {
+                    foreach (XmlNode n in root.ChildNodes)
+                    {
+                        if (n.NodeType != XmlNodeType.Element || n.Name != "ThingDef")
+                        {
+                            continue;
+                        }
+                        XmlElement name = n["defName"];
+                        if (name == null)
+                        {
+                            continue;
+                        }
+                        string own = AmmoRule.Normal(n["graphicData"]?["texPath"]?.InnerText);
+                        if (own != null && AmmoLooks.ByArt.ContainsKey(own))
+                        {
+                            read[name.InnerText] = own;
+                        }
+                        else
+                        {
+                            read.Remove(name.InnerText);   // a later node of this defName without such art of its own
+                        }
+                    }
+                }
+                byDefName = read;
+            }
+            catch (Exception e)
+            {
+                byDefName = null;
+                Log.Warning(Pack.Tag + "Reading the ammo defs' own textures failed (a def another mod re-textured loses its model): " + e);
+            }
+        }
+
+        // Every ammo def re-textured away from art the pack has a model for: its current texPath differs from the one it is
+        // shipped with (read above, so in AmmoLooks.ByArt) -> that shipped texPath (normalised as AmmoRule.Normal). A def
+        // shipped with art the pack has no model for keeps its current texPath (CE turns the game's grenades into ammo with
+        // its own art: they stay keyed on CE's art). Null if the defs were never read. Empty when no mod re-points CE's ammo art.
+        internal static Dictionary<ThingDef, string> Retextured()
+        {
+            Dictionary<string, string> read = byDefName;
+            byDefName = null;
+            if (read == null)
+            {
+                return null;
+            }
+            Dictionary<ThingDef, string> changed = new Dictionary<ThingDef, string>();
+            foreach (ThingDef d in DefDatabase<ThingDef>.AllDefsListForReading)
+            {
+                string own;
+                if (!(d is AmmoDef) || d.defName == null || !read.TryGetValue(d.defName, out own))
+                {
+                    continue;
+                }
+                if (!string.Equals(own, AmmoRule.Normal(d.graphicData?.texPath), StringComparison.OrdinalIgnoreCase))
+                {
+                    changed[d] = own;
+                }
+            }
+            return changed;
         }
     }
 

@@ -1,0 +1,13 @@
+# IsoRim Waylith - CE Pack: ammo colours for chdemo / std, sampled from The Generic Ammo Experience's and Combat Extended's textures (x1.08 lift).
+newmtl ceammo_base
+Kd 0.305 0.305 0.305
+newmtl ceammo_body
+Kd 0.610 0.610 0.508
+newmtl ceammo_band
+Kd 0.644 0.644 0.644
+newmtl ceammo_hazDark
+Kd 0.203 0.203 0.203
+newmtl ceammo_hazYellow
+Kd 0.915 0.847 0.136
+newmtl ceammo_nose
+Kd 0.847 0.847 0.847
