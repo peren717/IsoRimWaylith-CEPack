@@ -1,0 +1,11 @@
+# IsoRim Waylith - CE Pack: ammo colours for sabot / std, sampled from The Generic Ammo Experience's and Combat Extended's textures (x1.08 lift).
+newmtl ceammo_sabot
+Kd 0.508 0.508 0.508
+newmtl ceammo_rod
+Kd 0.508 0.339 0.339
+newmtl ceammo_pallet
+Kd 0.474 0.305 0.305
+newmtl ceammo_blockLight
+Kd 0.576 0.576 0.576
+newmtl ceammo_blockDark
+Kd 0.373 0.373 0.373

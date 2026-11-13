@@ -1,0 +1,13 @@
+# IsoRim Waylith - CE Pack: ammo colours for leadslug / std, sampled from The Generic Ammo Experience's and Combat Extended's textures (x1.08 lift).
+newmtl ceammo_ball
+Kd 0.373 0.373 0.373
+newmtl ceammo_powder
+Kd 0.203 0.203 0.203
+newmtl ceammo_pouch
+Kd 0.542 0.440 0.373
+newmtl ceammo_wood
+Kd 0.313 0.237 0.195
+map_Kd IsoRim/Swatches/Wood
+newmtl ceammo_woodTrim
+Kd 0.407 0.339 0.305
+map_Kd IsoRim/Swatches/Wood

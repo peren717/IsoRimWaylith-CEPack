@@ -1,0 +1,7 @@
+# IsoRim Waylith - CE Pack: ammo colours for sling / plasteel, sampled from The Generic Ammo Experience's and Combat Extended's textures (x1.08 lift).
+newmtl ceammo_pebble
+Kd 0.542 0.678 0.644
+newmtl ceammo_sack
+Kd 0.610 0.542 0.407
+newmtl ceammo_sackDark
+Kd 0.508 0.440 0.339

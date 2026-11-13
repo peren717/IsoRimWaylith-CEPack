@@ -1,0 +1,9 @@
+{
+ "Ammo_ChargedIntermediateRifle": { "look": "chrifle_fmj" },
+ "Ammo_ChargedIntermediateRifle_AP": { "look": "chrifle_conc" },
+ "Ammo_ChargedIntermediateRifle_Ion": { "look": "chrifle_ion" },
+ "Ammo_ChargedDemolition": { "look": "chdemo_std", "scale": 0.6 },
+ "Ammo_LeadSlug": { "look": "leadslug_std" },
+ "Ammo_RailgunSabot": { "look": "sabot_std", "scale": 0.9 },
+ "Ammo_SlingBullet_Plasteel": { "look": "sling_plasteel" }
+}

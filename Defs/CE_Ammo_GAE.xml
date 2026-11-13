@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- IsoRim Waylith - Combat Extended Pack: the new ammo of "The Generic Ammo Experience for Combat Extended" (Workshop 3284460811;
+     models from tools/make_ce_ammo2.py GAE, approved 2026-11-13), bound by thingDef from tools/ce_ammo_gae_binds.json. Without
+     that mod the things are missing and IsoRim skips these entries silently. Scale = the mod's drawSize.
+     Written by tools/make_ce_ammo_defs.js (do not edit by hand). -->
+<Defs>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_Ammo_ChargedDemolition</defName>
+    <thingDef>Ammo_ChargedDemolition</thingDef>
+    <stackModels>
+      <li>Models/ce_ammo_gae_chdemo_std_a.obj</li>
+      <li>Models/ce_ammo_gae_chdemo_std_b.obj</li>
+    </stackModels>
+    <scale>0.6</scale>
+    <overArt>true</overArt>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_Ammo_ChargedIntermediateRifle</defName>
+    <thingDef>Ammo_ChargedIntermediateRifle</thingDef>
+    <stackModels>
+      <li>Models/ce_ammo_gae_chrifle_fmj_a.obj</li>
+      <li>Models/ce_ammo_gae_chrifle_fmj_b.obj</li>
+      <li>Models/ce_ammo_gae_chrifle_fmj_c.obj</li>
+    </stackModels>
+    <overArt>true</overArt>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_Ammo_ChargedIntermediateRifle_AP</defName>
+    <thingDef>Ammo_ChargedIntermediateRifle_AP</thingDef>
+    <stackModels>
+      <li>Models/ce_ammo_gae_chrifle_conc_a.obj</li>
+      <li>Models/ce_ammo_gae_chrifle_conc_b.obj</li>
+      <li>Models/ce_ammo_gae_chrifle_conc_c.obj</li>
+    </stackModels>
+    <overArt>true</overArt>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_Ammo_ChargedIntermediateRifle_Ion</defName>
+    <thingDef>Ammo_ChargedIntermediateRifle_Ion</thingDef>
+    <stackModels>
+      <li>Models/ce_ammo_gae_chrifle_ion_a.obj</li>
+      <li>Models/ce_ammo_gae_chrifle_ion_b.obj</li>
+      <li>Models/ce_ammo_gae_chrifle_ion_c.obj</li>
+    </stackModels>
+    <overArt>true</overArt>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_Ammo_LeadSlug</defName>
+    <thingDef>Ammo_LeadSlug</thingDef>
+    <stackModels>
+      <li>Models/ce_ammo_gae_leadslug_std_a.obj</li>
+      <li>Models/ce_ammo_gae_leadslug_std_b.obj</li>
+      <li>Models/ce_ammo_gae_leadslug_std_c.obj</li>
+    </stackModels>
+    <overArt>true</overArt>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_Ammo_RailgunSabot</defName>
+    <thingDef>Ammo_RailgunSabot</thingDef>
+    <stackModels>
+      <li>Models/ce_ammo_gae_sabot_std_a.obj</li>
+      <li>Models/ce_ammo_gae_sabot_std_b.obj</li>
+      <li>Models/ce_ammo_gae_sabot_std_c.obj</li>
+    </stackModels>
+    <scale>0.9</scale>
+    <overArt>true</overArt>
+  </IsoRim.ModelDef>
+  <IsoRim.ModelDef>
+    <defName>R3D_CE_Ammo_SlingBullet_Plasteel</defName>
+    <thingDef>Ammo_SlingBullet_Plasteel</thingDef>
+    <stackModels>
+      <li>Models/ce_ammo_gae_sling_plasteel_a.obj</li>
+      <li>Models/ce_ammo_gae_sling_plasteel_b.obj</li>
+      <li>Models/ce_ammo_gae_sling_plasteel_c.obj</li>
+    </stackModels>
+    <overArt>true</overArt>
+  </IsoRim.ModelDef>
+</Defs>

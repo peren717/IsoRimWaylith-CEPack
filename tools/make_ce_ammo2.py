@@ -1,4 +1,5 @@
-# IsoRim Waylith - Combat Extended Pack: non-generic ammo models (batch "ammo2", 2026-10-30, Blender preview round 1).
+# IsoRim Waylith - Combat Extended Pack: non-generic ammo models (batch "ammo2", 2026-10-30, Blender preview round 1), and the
+# ammo of "The Generic Ammo Experience for Combat Extended" (Workshop 3284460811; batch "gae", 2026-11-13, looks G1..G5).
 # CE ammo without a generic counterpart (rockets, recoilless, advanced cells, medieval, neolithic, flamethrower fuel,
 # flares, nails, toxic grenades): one look per CE texture folder, bound by texture path (IsoRim Api 16 graphicPath).
 # Analysis: scratchpad ce_ammo2/ce_ammo2_analysis.md (shapes N1..N18 + the Tox colour set on the generic M5 grenade).
@@ -10,7 +11,14 @@
 # over the neighbouring cells as CE draws it; boulder 0.8; the 50mm rocket's drawSize 0.7 is the ModelDef scale, not here).
 # Game axes while building: x east, y up, z north, one cell per unit, origin = cell centre, nothing below y = 0. The OBJ
 # stores z flipped (file z = -game z); every part is its own closed shell, triangulated.
+# GAE looks (key GAE, section "GAE looks" below): written as ce_ammo_gae_<model>_<set>_<a|b|c>.obj + .mtl, bound by thingDef
+# to that mod's own defs (tools/ce_ammo_gae_binds.json -> Defs/CE_Ammo_GAE.xml). For them lathe/seg/body take an optional
+# 'phase' (ring turn; default 0 = the original rings) and a part may carry one material per triangle (Mesh.add with a list);
+# the ammo2 looks are written exactly as before these additions.
 # usage: <Blender>\5.2\python\bin\python.exe -I make_ce_ammo2.py <abs Models dir> [<abs report.json>] [model keys...]
+#          the ammo2 looks (all, or the keys given)
+#        <Blender>\5.2\python\bin\python.exe -I make_ce_ammo2.py <abs Models dir> [<abs report.json>] GAE [gae model keys...]
+#          the GAE looks
 import json, math, os, sys
 from collections import defaultdict
 
@@ -63,8 +71,9 @@ def box(cx, cz, w, d, y0, h, yaw=0.0):
     pts = [(-w / 2, -d / 2), (w / 2, -d / 2), (w / 2, d / 2), (-w / 2, d / 2)]
     return place(prism(pts, y0, y0 + h), yaw=yaw, at=(cx, 0, cz))
 
-def lathe(profile, n):
-    """profile [(r, t)] along the local +y axis from one end to the other; r = 0 makes a pole. Closed solid."""
+def lathe(profile, n, phase=0.0):
+    """profile [(r, t)] along the local +y axis from one end to the other; r = 0 makes a pole. Closed solid.
+    (gae) phase turns the rings by phase / n of a turn (0 = the original ring; -0.5 puts a corner on the local x axis)."""
     v, rings = [], []
     for r, h in profile:
         if r < 1e-9:
@@ -72,7 +81,7 @@ def lathe(profile, n):
         else:
             ring = []
             for i in range(n):
-                a = 2 * math.pi * (i + 0.5) / n
+                a = 2 * math.pi * (i + 0.5 + phase) / n
                 ring.append(len(v)); v.append((r * math.cos(a), h, r * math.sin(a)))
             rings.append(ring)
     t = []
@@ -108,12 +117,18 @@ def place(vt, axis='y', yaw=0.0, tilt=0.0, at=(0.0, 0.0, 0.0)):
         out.append((x + at[0], y + at[1], z + at[2]))
     return out, t
 
-def seg(m, mat, r0, r1, t0, t1, n, axis, cx, cy, cz, yaw=0.0, pivot=None):
-    """One coloured section of a round body: frustum r0 -> r1 from t0 to t1 along the axis through (cx, cy, cz)."""
-    prof = [(r0, t0), (r1, t1)] if r1 > 1e-9 else [(r0, t0), (0.0, t1)]
-    if r0 < 1e-9:
-        prof = [(0.0, t0), (r1, t1)]
-    v, t = lathe(prof, n)
+def seg(m, mat, r0, r1, t0, t1, n, axis, cx, cy, cz, yaw=0.0, pivot=None, phase=0.0, prof=None):
+    """One coloured section of a round body: frustum r0 -> r1 from t0 to t1 along the axis through (cx, cy, cz).
+    (gae) mat = ('stripes', A, B): the side faces alternate A / B round the ring (caps A), still one closed shell;
+    prof = [(r, t), ...] replaces the frustum by a whole profile (one shell, e.g. a rod with its pointed nose)."""
+    if prof is None:
+        prof = [(r0, t0), (r1, t1)] if r1 > 1e-9 else [(r0, t0), (0.0, t1)]
+        if r0 < 1e-9:
+            prof = [(0.0, t0), (r1, t1)]
+    v, t = lathe(prof, n, phase)
+    if isinstance(mat, tuple) and mat[0] == 'stripes':
+        caps = (n - 2) * sum(1 for r, _ in (prof[0], prof[-1]) if r > 1e-9)
+        mat = [mat[1]] * caps + [mat[1 + (k // 2) % 2] for k in range(len(t) - caps)]
     if axis == 'z':
         v = [(x + cx, z + cy, y + cz) for x, y, z in v]   # local y -> north, local z -> up
     elif axis == 'x':
@@ -126,11 +141,16 @@ def seg(m, mat, r0, r1, t0, t1, n, axis, cx, cy, cz, yaw=0.0, pivot=None):
         v = [((x - px) * c + (z - pz) * s + px, y, -(x - px) * s + (z - pz) * c + pz) for x, y, z in v]
     m.add(mat, (v, t))
 
-def body(m, sections, n, axis, cx, cy, cz, yaw=0.0, pivot=None):
-    """sections: [(mat, r0, r1, t0, t1)] along the axis (t in cells from (cx, cy, cz))."""
+def body(m, sections, n, axis, cx, cy, cz, yaw=0.0, pivot=None, phase=0.0):
+    """sections: [(mat, r0, r1, t0, t1)] along the axis (t in cells from (cx, cy, cz)).
+    (gae) a section may be (mat, profile) for one multi-ring shell; phase as lathe()."""
     start = len(m.parts)
-    for mat, r0, r1, t0, t1 in sections:
-        seg(m, mat, r0, r1, t0, t1, n, axis, cx, cy, cz, yaw, pivot)
+    for sec in sections:
+        if len(sec) == 2:
+            seg(m, sec[0], 0, 0, 0, 0, n, axis, cx, cy, cz, yaw, pivot, phase, prof=sec[1])
+        else:
+            mat, r0, r1, t0, t1 = sec
+            seg(m, mat, r0, r1, t0, t1, n, axis, cx, cy, cz, yaw, pivot, phase)
     low = min(p[1] for _, v, _ in m.parts[start:] for p in v)
     if low < 0.0:   # a slightly wider band on a polygon corner would dip under the ground: lift the whole body
         m.parts[start:] = [(mat, [(x, y - low, z) for x, y, z in v], t) for mat, v, t in m.parts[start:]]
@@ -195,17 +215,27 @@ def check(verts, tris):
             E[e] += 1
     return sum(1 for (a, b), n in E.items() if E.get((b, a), 0) != n), degen
 
+GEN = 'tools/make_ce_ammo2.py'
 def write_obj(mesh, name, mtl, header):
     lines = ['# IsoRim model: %s' % name, '# ' + header,
-             '# Generated by tools/make_ce_ammo2.py. One unit = one map cell, +Y up, file -Z = game north.', 'mtllib ' + mtl]
+             '# Generated by %s. One unit = one map cell, +Y up, file -Z = game north.' % GEN, 'mtllib ' + mtl]
     vb, rep, allv = 1, {'name': name, 'tris': 0, 'open_edges': 0, 'degenerate': 0}, []
     for pi, (mat, v, t) in enumerate(mesh.parts):
         t = orient(v, t)
         oe, dg = check(v, t)
         rep['tris'] += len(t); rep['open_edges'] += oe; rep['degenerate'] += dg
-        lines += ['o %s_%d' % (name, pi), 'usemtl ' + mat]
-        lines += ['v %.4f %.4f %.4f' % (x, y, -z) for x, y, z in v]
-        lines += ['f %d %d %d' % (a + vb, b + vb, c + vb) for a, b, c in t]
+        if isinstance(mat, list):   # (gae) one material per triangle: one object, a usemtl at each change
+            lines += ['o %s_%d' % (name, pi)]
+            lines += ['v %.4f %.4f %.4f' % (x, y, -z) for x, y, z in v]
+            cur = None
+            for mt, (a, b, c) in zip(mat, t):
+                if mt != cur:
+                    lines.append('usemtl ' + mt); cur = mt
+                lines.append('f %d %d %d' % (a + vb, b + vb, c + vb))
+        else:
+            lines += ['o %s_%d' % (name, pi), 'usemtl ' + mat]
+            lines += ['v %.4f %.4f %.4f' % (x, y, -z) for x, y, z in v]
+            lines += ['f %d %d %d' % (a + vb, b + vb, c + vb) for a, b, c in t]
         vb += len(v); allv += v
     rep['bounds'] = {k: [round(min(p[i] for p in allv), 3), round(max(p[i] for p in allv), 3)] for i, k in enumerate('xyz')}
     with open(os.path.join(OUT, name + '.obj'), 'w', newline='\n') as f:
@@ -216,14 +246,17 @@ def write_obj(mesh, name, mtl, header):
 SWATCH = {'can': 'Metal', 'canDark': 'Metal', 'canLight': 'Metal', 'link': 'Metal', 'crate': 'Metal', 'crateDark': 'Metal',
           'case': 'Metal', 'caseDark': 'Metal', 'caseStripe': 'Metal', 'block': 'Metal', 'frame': 'Metal', 'tank': 'Metal',
           'holder': 'Metal', 'tube': 'Metal', 'wood': 'Wood', 'woodDark': 'Wood'}
+SWATCH.update({'mag': 'Metal', 'woodTrim': 'Wood'})   # (gae) mags as make_ce_ammo.py; the lead-slug box trim is wood
+PREFIX = 'ce_ammo2'   # ce_ammo_gae for the GAE looks
+SOURCE = "Combat Extended's textures"
 def write_mtl(model, typ, cols):
-    lines = ['# IsoRim Waylith - CE Pack: ammo colours for %s / %s, sampled from Combat Extended\'s textures (x%.2f lift).' % (model, typ, LIFT)]
+    lines = ['# IsoRim Waylith - CE Pack: ammo colours for %s / %s, sampled from %s (x%.2f lift).' % (model, typ, SOURCE, LIFT)]
     for zone, hexc in cols.items():
         r, g, b = (min(1.0, int(hexc[i:i + 2], 16) / 255.0 * LIFT) for i in (1, 3, 5))
         lines += ['newmtl ceammo_' + zone, 'Kd %.3f %.3f %.3f' % (r, g, b)]
         if SWATCH.get(zone):
             lines.append('map_Kd IsoRim/Swatches/' + SWATCH[zone])
-    name = 'ce_ammo2_%s_%s.mtl' % (model, typ)
+    name = '%s_%s_%s.mtl' % (PREFIX, model, typ)
     with open(os.path.join(OUT, name), 'w', newline='\n') as f:
         f.write('\n'.join(lines) + '\n')
     return name
@@ -1112,12 +1145,287 @@ LOOKS = {'Things/Ammo/' + k: v for k, v in LOOKS.items()}
 EXTRA = {'Ammo_50mmRocket_HE': 'apkws_heat at scale 0.7 (CE drawSize 0.7), thingDef entry'}
 OVERSIZE = {'tomahawk'}   # drawn over neighbouring cells as CE draws it (drawSize 4)
 
+# ================================================================ GAE looks (2026-11-13)
+# "The Generic Ammo Experience for Combat Extended" (Workshop 3284460811) ammo defs without a 3D look in the pack. Bound
+# later by the mod's thingDefs (not by texture path), so nothing changes without that mod. Same conventions as above:
+# a = 1, b = more, c = full stack (IsoRim ModelDef.stackModels), the art read as a TOP view at 1 cell; a def's drawSize
+# below 1 is the ModelDef scale (as the 50mm rocket), not built in. Lying round bodies rest exactly on y = 0 (gbody), so
+# their outline closes on the ground (outline lesson 2026-11-01). Art -> model map per look in GAE_MODELS[...]['art'].
+GAE_MODELS = {}
+def gmodel(key, fn, sets, stacks='abc', label='', art='', scale=1.0, binds=()):
+    GAE_MODELS[key] = dict(fn=fn, sets=sets, stacks=stacks, label=label, art=art, scale=scale, binds=list(binds))
+
+S60 = math.sin(math.radians(60))
+
+def gbody(m, sections, n, x, z, yaw=0.0, y0=0.0, phase=0.0):
+    """body() lying along 'z' (turned by yaw about its own centre), then moved so its lowest point is exactly y0."""
+    start = len(m.parts)
+    body(m, sections, n, 'z', x, 1.0, z, yaw, pivot=(x, z), phase=phase)
+    low = min(p[1] for _, v, _ in m.parts[start:] for p in v)
+    m.parts[start:] = [(mat, [(px, py - low + y0, pz) for px, py, pz in v], t) for mat, v, t in m.parts[start:]]
+
+def tube(m, mat, pts, r, n=6):
+    """A closed round tube along a polyline [(x, y, z)] lying flat (rings square to the path, sides from the world up)."""
+    v, t, rings = [], [], []
+    for k, p in enumerate(pts):
+        a, b = pts[max(k - 1, 0)], pts[min(k + 1, len(pts) - 1)]
+        tx, tz = b[0] - a[0], b[2] - a[2]
+        ln = math.hypot(tx, tz)
+        sx, sz = tz / ln, -tx / ln
+        ring = []
+        for i in range(n):
+            ang = 2 * math.pi * (i + 0.5) / n
+            ring.append(len(v)); v.append((p[0] + r * math.cos(ang) * sx, p[1] + r * math.sin(ang), p[2] + r * math.cos(ang) * sz))
+        rings.append(ring)
+    t += [(rings[0][0], rings[0][i + 1], rings[0][i]) for i in range(1, n - 1)]
+    t += [(rings[-1][0], rings[-1][i], rings[-1][i + 1]) for i in range(1, n - 1)]
+    for A, B in zip(rings, rings[1:]):
+        for i in range(n):
+            j = (i + 1) % n
+            t += [(A[i], A[j], B[j]), (A[i], B[j], B[i])]
+    m.add(mat, (v, t))
+
+def grid_box(m, x0, x1, y0, y1, z0, z1, nx, ny, nz, mA, mB, off=0):
+    """One closed box, every face split into a grid with checker colours mA / mB (the art's packed rod ends)."""
+    xs = [x0 + (x1 - x0) * i / nx for i in range(nx + 1)]
+    ys = [y0 + (y1 - y0) * j / ny for j in range(ny + 1)]
+    zs = [z0 + (z1 - z0) * k / nz for k in range(nz + 1)]
+    vid, v, t, mats = {}, [], [], []
+    def V(i, j, k):
+        if (i, j, k) not in vid:
+            vid[(i, j, k)] = len(v); v.append((xs[i], ys[j], zs[k]))
+        return vid[(i, j, k)]
+    def quad(a, b, c, d, par):
+        mm = mA if par % 2 == 0 else mB
+        t.extend([(a, b, c), (a, c, d)]); mats.extend([mm, mm])
+    for i in (0, nx):
+        for j in range(ny):
+            for k in range(nz):
+                quad(V(i, j, k), V(i, j + 1, k), V(i, j + 1, k + 1), V(i, j, k + 1), j + k + min(i, nx - 1) + off)
+    for j in (0, ny):
+        for i in range(nx):
+            for k in range(nz):
+                quad(V(i, j, k), V(i + 1, j, k), V(i + 1, j, k + 1), V(i, j, k + 1), i + k + min(j, ny - 1) + off)
+    for k in (0, nz):
+        for i in range(nx):
+            for j in range(ny):
+                quad(V(i, j, k), V(i + 1, j, k), V(i + 1, j + 1, k), V(i, j + 1, k), i + j + min(k, nz - 1) + off)
+    m.add(mats, (v, t))
+
+# ---------------------------------------------------------------- G1 charged intermediate rifle (GAE art, 6 sprites a..f)
+def ch_round(m, x, z, s=1.0, yaw=0.0, n=8, y0=0.0):
+    """Cartridge lying, tip to +axis (north before yaw): dark base rim, pale case, dark seam, type-coloured head with a
+    lighter shoulder, black cone tip. Lengths from the art (0.53 inside the outline); the head's 3 slots left out."""
+    r = 0.065 * s
+    t = -0.265 * s
+    secs = []
+    for mat, ln, k0, k1 in (('base', 0.05, 0.94, 0.94), ('case', 0.19, 1.0, 1.0), ('base', 0.02, 0.93, 0.93),
+                            ('head', 0.14, 1.0, 1.0), ('headLight', 0.03, 1.0, 0.72), ('tip', 0.10, 0.48, 0.0)):
+        secs.append((M + mat, r * k0, r * k1, t, t + ln * s)); t += ln * s
+    gbody(m, secs, n, x, z, yaw, y0)
+
+def gmag(m, x, z, yaw, s=1.0):
+    """Box mag lying flat, feed end north: grey body, type-coloured label over the south 58 % (top + east side; the west
+    side stays grey as in the art), the top round lying E-W on the north end, tip east. Returns its size (w, d, h)."""
+    w, d, h = 0.34 * s, 0.60 * s, 0.11 * s
+    m.add(M + 'mag', box(x, z, w, d, 0.0, h, yaw))
+    lw, ld = 0.78 * w, 0.58 * d
+    ox, oz = roff(w / 2 - lw / 2 + 0.0015, -d / 2 + 0.08 * d + ld / 2, yaw)
+    m.add(M + 'label', box(x + ox, z + oz, lw + 0.003, ld, 0.0, h + 0.004, yaw))
+    ox, oz = roff(-0.02 * s, d / 2 - 0.07 * s, yaw)
+    ch_round(m, x + ox, z + oz, s=0.5 * s, yaw=yaw + 90.0, n=6, y0=h + 0.01)
+    return w, d, h
+
+def standing_mag(m, x, z, tilt=-10.0):
+    """Mag standing on its base, leaning back (north), label over its lower part (east 78 %, as gmag)."""
+    sec = [(-0.08, -0.035), (0.08, -0.035), (0.08, 0.035), (-0.08, 0.035)]
+    m.add(M + 'mag', place(prism(sec, 0.0, 0.30), tilt=tilt, at=(x, 0.0062, z)))
+    lab = [(-0.08 + 0.0352, -0.0385), (0.0835, -0.0385), (0.0835, 0.0385), (-0.08 + 0.0352, 0.0385)]
+    m.add(M + 'label', place(prism(lab, 0.025, 0.20), tilt=tilt, at=(x, 0.0062, z)))
+
+def chrifle(stk):
+    m = Mesh()
+    if stk == 'a':
+        ch_round(m, 0.0, 0.0)
+    elif stk == 'b':      # art e: two mags side by side, turned 14 deg as drawn, the east one a bit north
+        s, yaw = 0.9, 14.0
+        w, d, h = gmag(m, -0.175, -0.03, yaw, s)
+        gmag(m, 0.175, 0.04, yaw, s)
+        dx, dz = 0.35, 0.07
+        across = dx * math.cos(math.radians(yaw)) - dz * math.sin(math.radians(yaw))
+        gap('chrifle b: mags apart (across, incl. label wrap)', w + 0.003, across)
+        gap('chrifle b: top round inside the mag width', 0.5 * s * 0.265 + 0.02 * s, w / 2)
+    else:                 # art f: type-coloured crate, ribbed lid, white panel front-west, 2 mags standing front-east
+        w, d, h, cz = 0.86, 0.46, 0.36, 0.13
+        m.add(M + 'crate', box(0, cz, w, d, 0.0, h))
+        for rx in (-0.27, 0.0, 0.27):
+            m.add(M + 'crateDark', box(rx, cz, 0.12, d - 0.06, h, 0.025))
+        m.add(M + 'panel', box(-0.20, cz - d / 2 - 0.005, 0.36, 0.01, 0.07, 0.15))
+        for lz in (cz - 0.12, cz + 0.12):
+            m.add(M + 'latch', box(w / 2 + 0.015, lz, 0.03, 0.06, 0.20, 0.08))
+        for x in (0.12, 0.30):
+            standing_mag(m, x, -0.31)
+        gap('chrifle c: standing mags apart (x)', 0.12 + 0.0835, 0.30 - 0.08)
+        gap('chrifle c: leaning mags vs crate panel (z)', -0.31 + 0.0385 + 0.30 * math.sin(math.radians(10)), cz - d / 2 - 0.01)
+    return m
+
+CR = dict(case='#A8A898', base='#303030', tip='#303030', mag='#606060', panel='#F0F0F0', latch='#606060')
+gmodel('chrifle', chrifle, {
+    'fmj': dict(head='#509810', headLight='#60B020', label='#407810', crate='#509810', crateDark='#306008', **CR),
+    'conc': dict(head='#902028', headLight='#B03838', label='#782020', crate='#902028', crateDark='#601818', **CR),
+    'ion': dict(head='#4820A8', headLight='#5830C0', label='#381888', crate='#4820A8', crateDark='#281068', **CR)},
+    label='G1 Charged intermediate rifle (GAE art)',
+    art='a = _a (1 round), b = _e (2 mags), c = _f (crate + 2 mags); _b/_c (2, 3 rounds) and _d (1 mag) have no model',
+    binds=('Ammo_ChargedIntermediateRifle -> fmj (SEX_Rifle_FMJ)', 'Ammo_ChargedIntermediateRifle_AP -> conc (SEX_Rifle_AP)',
+           'Ammo_ChargedIntermediateRifle_Ion -> ion (the def shows SEX_Rifle_HP, purple; SEX_Rifle_ION blue is unused)'))
+
+# ---------------------------------------------------------------- G2 charged demolition cell (CE Things/Ammo/Mortar/Charged, 2 sprites)
+def demo_shell(m, x, z, s=1.0, n=8, full=True):
+    """Shell lying, nose north: olive body, grey band, black band with yellow dashes (stripes round the ring), silver
+    ogive nose. Lengths from the art's centre column (0.85 inside the outline), r 0.105."""
+    r = 0.105 * s
+    haz = ('stripes', M + 'hazDark', M + 'hazYellow')
+    parts = ([('base', 0.03, 0.95), ('body', 0.30, 1.0)] if full else [('body', 0.33, 1.0)])
+    parts += [('band', 0.06, 1.0), ('hazDark', 0.02, 1.01), (haz, 0.09, 1.01), ('hazDark', 0.02, 1.01)]
+    t = -0.425 * s
+    secs = []
+    for mat, ln, k in parts:
+        secs.append((mat if isinstance(mat, tuple) else M + mat, r * k, r * k, t, t + ln * s)); t += ln * s
+    if full:
+        secs.append((M + 'nose', r, r, t, t + 0.05 * s)); t += 0.05 * s
+    secs += [(M + 'nose', a, b, c, d) for a, b, c, d in ogive(r, t, 0.425 * s, 3 if n > 6 else 2)]
+    gbody(m, secs, n, x, z)
+
+def chdemo(stk):
+    m = Mesh()
+    if stk == 'a':
+        demo_shell(m, 0.0, 0.0)
+    else:                 # art b: 3 shells, the middle one forward (south) as drawn
+        for x, z in ((-0.24, 0.04), (0.0, -0.05), (0.24, 0.04)):
+            demo_shell(m, x, z, s=0.9, n=6, full=False)
+        rr = 0.105 * 0.9 * 1.01
+        gap('chdemo b: shells side by side', -0.24 + rr, 0.0 - rr)
+    return m
+
+gmodel('chdemo', chdemo, {'std': dict(base='#484848', body='#909078', band='#989898', hazDark='#303030', hazYellow='#D8C820', nose='#C8C8C8')},
+       stacks='ab', label='G2 Charged demolition cell (CE Mortar/Charged art)', scale=0.6,
+       art='a = Charged_a (1 shell), b = Charged_b (3 shells); CE has 2 sprites, so no c (as fuel cells M12)',
+       binds=('Ammo_ChargedDemolition -> std, ModelDef scale 0.6 (GAE drawSize 0.6)',))
+
+# ---------------------------------------------------------------- G3 lead slug (CE Things/Ammo/Medieval/Musket/Ball, 3 sprites)
+def lball(m, x, z, y0=0.0, r=0.055, n=8):
+    sphere(m, M + 'ball', x, y0 + r, z, r, n, 4)
+
+def heap(m, x, z, r=0.09, h=0.07, n=7):
+    """Black powder heap: low cone with a rounded shoulder."""
+    m.add(M + 'powder', place(lathe([(r, 0.0), (r * 0.55, h * 0.6), (0.0, h)], n), at=(x, 0.0, z)))
+
+def ball_pile(m, x, z, r=0.055):
+    """3 balls on the ground in a triangle + 1 on top (the art's cluster of 4). Returns the pile's north edge z."""
+    for px, pz in ((x - 1.1 * r, z - 0.64 * r), (x + 1.1 * r, z - 0.64 * r), (x, z + 1.27 * r)):
+        lball(m, px, pz, 0.0, r)
+    dy = math.sqrt((2 * r + 0.01) ** 2 - (1.27 * r) ** 2)
+    lball(m, x, z, dy, r)
+    gap('lead pile: ground balls apart', 2 * r, 2.2 * r)
+    return z + 1.27 * r + r
+
+def leadslug(stk):
+    m = Mesh()
+    if stk == 'a':        # art a: one lead ball + a little powder heap east of it
+        lball(m, -0.04, 0.02, 0.0, 0.065)
+        heap(m, 0.12, -0.04, 0.075, 0.055)
+        gap('lead a: ball vs heap (radii vs centre distance)', 0.065 + 0.075, math.hypot(0.16, 0.06))
+    elif stk == 'b':      # art b: leather pouch (loaf, rounded top) E-W at the back, ball pile front-west, heap front-east
+        d, hs, cz = 0.28, 0.13, 0.10
+        prof = [(0.0, -d / 2), (0.0, d / 2)] + [(hs + d / 2 * math.sin(math.pi * k / 6), d / 2 * math.cos(math.pi * k / 6)) for k in range(7)]
+        m.add(M + 'pouch', place(prism(prof, -0.25, 0.25), axis='x', at=(-0.02, 0.0, cz)))
+        north = ball_pile(m, -0.14, -0.19)
+        heap(m, 0.14, -0.18, 0.09, 0.075)
+        gap('lead b: ball pile vs pouch (z)', north, cz - d / 2)
+        gap('lead b: heap vs pouch (z)', -0.18 + 0.09, cz - d / 2)
+        gap('lead b: pile vs heap (x)', -0.14 + 1.1 * 0.055 + 0.055, 0.14 - 0.09)
+    else:                 # art c: dark wooden box with a lighter lid seam, pile front-west, heap front-east (lid emblem dropped)
+        w, d, h, cz = 0.80, 0.44, 0.28, 0.12
+        m.add(M + 'wood', box(0.05, cz, w, d, 0.0, h))
+        m.add(M + 'woodTrim', box(0.05, cz, w + 0.008, d + 0.008, h * 0.58, 0.03))
+        north = ball_pile(m, -0.27, -0.26)
+        heap(m, 0.21, -0.27, 0.11, 0.09)
+        gap('lead c: ball pile vs box (z)', north, cz - d / 2 - 0.004)
+        gap('lead c: heap vs box (z)', -0.27 + 0.11, cz - d / 2 - 0.004)
+    return m
+
+gmodel('leadslug', leadslug, {'std': dict(ball='#585858', powder='#303030', pouch='#806858', wood='#4A382E', woodTrim='#605048')},
+       label='G3 Lead slug (CE Medieval/Musket/Ball art)', art='a = Ball_a, b = Ball_b, c = Ball_c',
+       binds=('Ammo_LeadSlug -> std',))
+
+# ---------------------------------------------------------------- G4 railgun sabot (GAE art SEX_RailgunSabot, 6 sprites a..f)
+def sabot_rod(m, x, z, yaw=0.0, y0=0.0, L=0.88, r=0.175, nose=0.34, tip=0.025):
+    """Lying 6-sided steel rod, a flat face up, tapering to a small flat point at +axis (north before yaw): one shell."""
+    t0 = -L / 2
+    gbody(m, [(M + 'sabot', [(r, t0), (r, t0 + L - nose), (tip, L / 2)])], 6, x, z, yaw, y0, phase=-0.5)
+
+def clip(m, cx, cz, s=1.0):
+    """Art d: a reddish rod with a hooked NE end lying across 4 short sabots whose noses point SE."""
+    du = (math.sqrt(0.5), math.sqrt(0.5))     # along the rod (NE)
+    dp = (du[1], -du[0])                     # across (SE)
+    def P(a, p):
+        return cx + a * du[0] + p * dp[0], cz + a * du[1] + p * dp[1]
+    rs, Ls = 0.06 * s, 0.30 * s
+    for i in range(4):
+        sx, sz = P((-0.27 + 0.16 * i) * s, 0.05 * s)
+        sabot_rod(m, sx, sz, yaw=135.0, L=Ls, r=rs, nose=0.12 * s, tip=0.012 * s)
+    rr, rh = 0.022 * s, 0.085 * s
+    yc = 2 * rs * S60 + 0.01 + rr
+    (x0, z0), (x1, z1) = P(-0.42 * s, 0.0), P(0.26 * s, 0.0)
+    pts = [(x0, yc, z0), (x1, yc, z1)]
+    c = (x1 + rh * dp[0], z1 + rh * dp[1])
+    u = (-dp[0], -dp[1])
+    for k in range(1, 6):
+        ph = math.radians(40.0 * k)
+        pts.append((c[0] + rh * (math.cos(ph) * u[0] + math.sin(ph) * du[0]), yc, c[1] + rh * (math.cos(ph) * u[1] + math.sin(ph) * du[1])))
+    tube(m, M + 'rod', pts, rr, 5)
+    gap('sabot clip: sabots apart along the rod', 2 * rs, 0.16 * s)
+    gap('sabot clip: rod above the sabots', 2 * rs * S60, yc - rr)
+
+def sabot(stk):
+    m = Mesh()
+    if stk == 'a':        # art a: one big rod lying N-S (drawSize 0.9 = the ModelDef scale)
+        sabot_rod(m, 0.0, 0.0)
+    elif stk == 'b':      # art e: two clips side by side
+        s = 0.9
+        for p in (-0.145, 0.145):
+            clip(m, -0.015 + p * math.sqrt(0.5), 0.02 - p * math.sqrt(0.5), s)
+        gap('sabot b: clips apart (west noses vs east bases, across)', -0.145 + 0.20 * s, 0.145 - 0.10 * s)
+    else:                 # art f: block of packed rods (checker ends, stepped top: west column one rod lower) on a pallet + 1 rod in front
+        m.add(M + 'pallet', box(0.0, 0.12, 0.90, 0.56, 0.0, 0.05))
+        grid_box(m, -0.12, 0.30, 0.05, 0.47, -0.04, 0.34, 3, 3, 3, M + 'blockLight', M + 'blockDark')
+        grid_box(m, -0.27, -0.13, 0.05, 0.33, -0.04, 0.34, 1, 2, 3, M + 'blockLight', M + 'blockDark', off=1)
+        sabot_rod(m, -0.12, -0.28, yaw=60.0, L=0.36, r=0.065, nose=0.14, tip=0.012)
+        gap('sabot c: block columns apart (x)', -0.13, -0.12)
+        gap('sabot c: lying rod vs pallet (z)', max(-0.28 + 0.04 * 0.5 + 0.065 * S60, -0.28 + 0.18 * 0.5 + 0.012 * S60), 0.12 - 0.28)
+    return m
+
+gmodel('sabot', sabot, {'std': dict(sabot='#787878', rod='#785050', pallet='#704848', blockLight='#888888', blockDark='#585858')},
+       label='G4 Railgun sabot (GAE art)', scale=0.9,
+       art='a = _a (1 rod), b = _e (2 clips), c = _f (rod block on a pallet); _b/_c (2, 3 rods) and _d (1 clip) have no model',
+       binds=('Ammo_RailgunSabot -> std, ModelDef scale 0.9 (GAE drawSize 0.9)',))
+
+# ---------------------------------------------------------------- G5 plasteel sling bullet (CE Neolithic/SlingBullet/Plasteel)
+gmodel('sling', sling, {'plasteel': dict(pebble='#80A098', sack='#908060', sackDark='#786850')},
+       label='G5 Plasteel sling bullets (N16 sling geometry, unchanged)', art='a = Plasteel_a, b = Plasteel_b, c = Plasteel_c',
+       binds=('Ammo_SlingBullet_Plasteel -> plasteel',))
+
 if __name__ == '__main__':
-    only = sys.argv[3:] if len(sys.argv) > 3 else None
+    args = sys.argv[3:]
+    gae = args[:1] == ['GAE']
+    if gae:
+        PREFIX = 'ce_ammo_gae'
+        SOURCE = "The Generic Ammo Experience's and Combat Extended's textures"
+        todo = {k: v for k, v in GAE_MODELS.items() if len(args) == 1 or k in args[1:]}
+    else:
+        todo = {k: v for k, v in MODELS.items() if not args or k in args}
     reports = []
-    for key, md in MODELS.items():
-        if only and key not in only:
-            continue
+    for key, md in todo.items():
         shapes = {}
         for stk in md['stacks']:
             n0 = len(CHECKS)
@@ -1128,8 +1436,9 @@ if __name__ == '__main__':
             mtl = write_mtl(key, typ, cols)
             used = set()
             for stk, mesh in shapes.items():
-                used |= {p[0][len(M):] for p in mesh.parts}
-                rep = write_obj(mesh, 'ce_ammo2_%s_%s_%s' % (key, typ, stk), mtl, '%s, colour set %s, stack sprite %s.' % (md['label'], typ, stk))
+                for p in mesh.parts:
+                    used |= {mt[len(M):] for mt in (p[0] if isinstance(p[0], list) else [p[0]])}
+                rep = write_obj(mesh, '%s_%s_%s_%s' % (PREFIX, key, typ, stk), mtl, '%s, colour set %s, stack sprite %s.' % (md['label'], typ, stk))
                 rep['oversize'] = key in OVERSIZE
                 reports.append(rep)
             missing = used - set(cols)
@@ -1140,7 +1449,12 @@ if __name__ == '__main__':
     heavy = [(r['name'], r['tris']) for r in reports if r['tris'] > 320]
     failed = [c for c in CHECKS if not c['ok']]
     out = {'objs': len(reports), 'bad': bad, 'over_320_tris': heavy, 'checks': CHECKS, 'failed_checks': failed,
-           'tris': {r['name']: r['tris'] for r in reports}, 'bounds': {r['name']: r['bounds'] for r in reports}, 'looks': LOOKS, 'extra': EXTRA}
+           'tris': {r['name']: r['tris'] for r in reports}, 'bounds': {r['name']: r['bounds'] for r in reports}}
+    if not gae:
+        out['looks'], out['extra'] = LOOKS, EXTRA
+    else:
+        out['gae'] = {k: dict(label=v['label'], art=v['art'], scale=v['scale'], binds=v['binds'], sets=list(v['sets']), stacks=v['stacks'])
+                      for k, v in todo.items()}
     if REPORT:
         json.dump(out, open(REPORT, 'w'), indent=1)
     print('%d OBJ, %d bad, %d over 320 tris, %d/%d clearance checks failed' % (len(reports), len(bad), len(heavy), len(failed), len(CHECKS)))

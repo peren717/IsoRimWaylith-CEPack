@@ -1,8 +1,9 @@
 // IsoRim Waylith - Combat Extended Pack: writes the ammo ModelDefs, the graphicPath patch and the rule's look table from the
 // generators' look lists (tools/ce_ammo_looks.json = generic looks, tools/ce_ammo2_looks.json = non-generic looks) and the
-// OBJ files in Models/ (a/b/c stack versions as made by make_ce_ammo.py / make_ce_ammo2.py).
+// OBJ files in Models/ (a/b/c stack versions as made by make_ce_ammo.py / make_ce_ammo2.py, its key GAE for ce_ammo_gae_*), and the
+// thingDef bindings of another mod's own ammo (tools/ce_ammo_gae_binds.json: defName -> look, optional scale).
 // usage: node tools/make_ce_ammo_defs.js   (from the pack root or anywhere: paths are relative to this file)
-// Writes: Defs/CE_Ammo_Generic.xml, Defs/CE_Ammo_NonGeneric.xml, Patches/CE_Ammo.xml, Source/AmmoLooks.cs
+// Writes: Defs/CE_Ammo_Generic.xml, Defs/CE_Ammo_NonGeneric.xml, Defs/CE_Ammo_GAE.xml, Patches/CE_Ammo.xml, Source/AmmoLooks.cs
 const fs = require("fs");
 const path = require("path");
 const root = path.join(__dirname, "..");
@@ -95,6 +96,21 @@ fs.writeFileSync(path.join(root, "Defs", "CE_Ammo_NonGeneric.xml"), head(
   "     approved 2026-10-30), bound by CE texture folder (graphicPath). LaserPack and PlasmaCell/Heavy share one art and one\n" +
   "     model. The 50mm rocket: the APKWS model at CE's drawSize 0.7. Pila keeps IsoRim's own javelin model.") + nx + "</Defs>\n");
 
+// ---- "The Generic Ammo Experience for Combat Extended": its own new ammo defs, bound by thingDef (tools/ce_ammo_gae_binds.json,
+// the one place their defNames are named). Not by texture folder: three of them reuse CE art that CE's own defs also use, and
+// those stay as they are. Without that mod the defs are missing and IsoRim skips each entry silently (GetNamedSilentFail).
+const gae = JSON.parse(fs.readFileSync(path.join(__dirname, "ce_ammo_gae_binds.json"), "utf8"));
+let gx2 = "";
+for (const d of Object.keys(gae).sort()) {
+  const b = gae[d];
+  gx2 += def(`R3D_CE_${d}`, stacks(`ce_ammo_gae_${b.look}`),
+    { pre: `    <thingDef>${d}</thingDef>\n`, post: b.scale && b.scale !== 1 ? `    <scale>${b.scale}</scale>\n` : "" });
+}
+fs.writeFileSync(path.join(root, "Defs", "CE_Ammo_GAE.xml"), head(
+  "the new ammo of \"The Generic Ammo Experience for Combat Extended\" (Workshop 3284460811;\n" +
+  "     models from tools/make_ce_ammo2.py GAE, approved 2026-11-13), bound by thingDef from tools/ce_ammo_gae_binds.json. Without\n" +
+  "     that mod the things are missing and IsoRim skips these entries silently. Scale = the mod's drawSize.") + gx2 + "</Defs>\n");
+
 // ---- patch: graphicPath for the generic looks (Api 16), IsoRim's own mortar shell entries removed
 let px = `<?xml version="1.0" encoding="utf-8"?>\n<!-- IsoRim Waylith - Combat Extended Pack: written by tools/make_ce_ammo_defs.js (do not edit by hand). -->\n<Patch>\n`;
 px += `  <!-- Every generic look also binds things drawn with its CE texture (other mods' ammo reusing CE's art, CE's Halo defs;\n`
@@ -113,8 +129,17 @@ fs.mkdirSync(path.join(root, "Patches"), { recursive: true });
 fs.writeFileSync(path.join(root, "Patches", "CE_Ammo.xml"), px);
 
 // ---- C# look table for the rule
+// ByArt: every CE texture folder the pack has a model for, and the ModelDef its graphicPath binds (the generic folders' from
+// the patch above, the non-generic ones' from CE_Ammo_NonGeneric.xml): the rule gives an ammo def that another mod re-pointed
+// away from its CE art the model of that art (Source/Ammo.cs, AmmoRule.Build).
+const byArt = {};
+for (const tp of Object.keys(pathDef)) byArt[tp] = pathDef[tp];
+for (const tp of Object.keys(ng)) {
+  if (byArt[tp]) throw new Error("texture folder in both look lists: " + tp);
+  byArt[tp] = `R3D_CE_${short(tp)}`;
+}
 let cs = `// Written by tools/make_ce_ammo_defs.js (do not edit by hand): CE's generic ammo texture folders and their looks
-// (R3D_CE_<look>), and the texture folders of the non-generic looks (bound by graphicPath).
+// (R3D_CE_<look>), and every CE ammo texture folder with the ModelDef that binds it by graphicPath.
 using System.Collections.Generic;
 
 namespace IsoRimCEPack
@@ -129,14 +154,14 @@ namespace IsoRimCEPack
 for (const tp of Object.keys(lookOf).sort()) cs += `            { "${tp}", "${lookOf[tp]}" },\n`;
 cs += `        };
 
-        internal static readonly HashSet<string> NonGeneric = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        internal static readonly Dictionary<string, string> ByArt = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase)
         {
 `;
-for (const tp of Object.keys(ng).sort()) cs += `            "${tp}",\n`;
+for (const tp of Object.keys(byArt).sort()) cs += `            { "${tp}", "${byArt[tp]}" },\n`;
 cs += `        };
     }
 }
 `;
 fs.writeFileSync(path.join(root, "Source", "AmmoLooks.cs"), cs);
 console.log("generic looks", lookDefs.size, "extra path defs", extraGen.length, "graphicPaths", Object.keys(pathDef).length,
-  "shells", shells.length, "non-generic", Object.keys(ng).length);
+  "shells", shells.length, "non-generic", Object.keys(ng).length, "by art", Object.keys(byArt).length);
