@@ -48,11 +48,13 @@ namespace IsoRimCEPackZ
 
         // ------------------------------------------------------------------ o1: the owner's answer is followed
         // A shot from floor 1 down at the ground: its minimum collision distance is CE's own GetMinCollisionDistance, called
-        // by CE with the distance on one frame (Frames.MinCollision_Prefix), not the raw-row one a band too far. For the
-        // check CE's method is patched to answer its argument + MinCollisionOffset, so the projectile's value names the
-        // distance CE's call got: it must be the one-floor distance of the fixture, and not the raw-row one.
-        // -cepacknomincoll (the fix off) must fail the check.
-        private const float MinCollisionOffset = 1000f;
+        // by CE's own TryCastShot on the target cell's centre read in the shooter's frame (Aim.MinCollision_Transpiler), so
+        // on the one-floor distance, not the raw-row one a band too far. For the check CE's method is patched to answer its
+        // argument + MinCollisionOffset, so the projectile's value names the distance CE's call got: it must be the
+        // one-floor distance of the fixture (within MinCollisionSlack: CE measures from the pawn's drawn centre), not the
+        // raw-row one. -cepacknomincoll (the swap off) must fail it. Mode fault -cepackfault=mincollision runs it as M7b
+        // with the swap's group failed: the shot still fires between floors, with CE's raw-row distance.
+        private const float MinCollisionOffset = 1000f, MinCollisionSlack = 0.5f;
         private static bool minMark;
         private static readonly List<(string by, float min)> minSeen = new List<(string, float)>();
 
@@ -72,9 +74,11 @@ namespace IsoRimCEPackZ
             }
         }
 
-        private static IEnumerator<int> OwnerMinCollision()
+        private static IEnumerator<int> OwnerMinCollision() => MinCollisionShot("o1", true);
+
+        private static IEnumerator<int> MinCollisionShot(string id, bool corrected)
         {
-            Out("--- o1 CE's own minimum collision distance, between floors");
+            Out("--- " + id + " CE's own minimum collision distance, between floors (" + (corrected ? "one-floor distance" : "correction off: CE's raw-row distance") + ")");
             // (check 2's balcony, moved to a block of its own)
             Wipe(110, 171, 125, 198);
             Slab(115, 176, 119, 180);
@@ -93,7 +97,7 @@ namespace IsoRimCEPackZ
             string can = CanHit(shooter, target);
             minSeen.Clear();
             minMark = true;
-            int t0 = Find.TickManager.TicksGame;
+            int t0 = Find.TickManager.TicksGame, swaps0 = Aim.MinCollisionSwaps;
             Order(shooter, target);
             yield return 300;
             minMark = false;
@@ -101,12 +105,15 @@ namespace IsoRimCEPackZ
             List<Shot> launched = By(shooter, Launches, t0);
             List<float> mine = minSeen.Where(s => s.by == shooter.ThingID).Select(s => s.min).ToList();
             bool stayed = shooter.Position == shooterCell && target.Position == targetCell;
-            float want = one + MinCollisionOffset, rawWant = raw + MinCollisionOffset;
+            float want = (corrected ? one : raw) + MinCollisionOffset, other = (corrected ? raw : one) + MinCollisionOffset;
             string seen = string.Join(",", mine.Select(v => v.ToString("0.000")));
-            Out("  can hit " + can + ", launched " + launched.Count + ", fixes " + Frames.MinCollisionFixes + ", minimum collision distances " + seen + " (one floor " + want.ToString("0.000") + ", raw rows " + rawWant.ToString("0.000") + ")");
-            Check("o1 a shot between floors: CE's (patched) minimum collision distance of the one-floor distance, not the raw-row one",
-                launched.Count > 0 && mine.Count > 0 && stayed && Mathf.Abs(want - rawWant) > 1f && mine.All(v => Mathf.Abs(v - want) < 1e-3f && Mathf.Abs(v - rawWant) > 1f),
-                "can hit " + can + ", launched " + launched.Count + ", in place " + stayed + ", distances " + seen + " (one floor " + want.ToString("0.000") + ", raw rows " + rawWant.ToString("0.000") + ")");
+            string got = "can hit " + can + ", launched " + launched.Count + ", in place " + stayed + ", swaps " + (Aim.MinCollisionSwaps - swaps0) + ", distances " + seen
+                + " (one floor " + (one + MinCollisionOffset).ToString("0.000") + ", raw rows " + (raw + MinCollisionOffset).ToString("0.000") + ")";
+            Out("  " + got);
+            Check(id + (corrected ? " a shot between floors: CE's (patched) minimum collision distance of the one-floor distance, not the raw-row one"
+                    : " the correction's group failed: the shot between floors still fires, with CE's (patched) minimum collision distance of the raw-row distance"),
+                launched.Count > 0 && mine.Count > 0 && stayed && Mathf.Abs(want - other) > 2f * MinCollisionSlack
+                && mine.All(v => Mathf.Abs(v - want) < MinCollisionSlack && Mathf.Abs(v - other) > MinCollisionSlack), got);
             Gone(shooter, target);
         }
 

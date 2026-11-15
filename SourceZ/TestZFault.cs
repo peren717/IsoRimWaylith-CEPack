@@ -89,6 +89,14 @@ namespace IsoRimCEPackZ
                         Check("M4 log lines: the per-method lines and one summary line", packLines.Count == lines + 1, packLines.Count + " pack lines");
                     }
                     break;
+                case "mincollision":
+                    // CE's target-centre read for the minimum collision distance not found (a CE update): only that non-key
+                    // group fails (the startup summary line), nothing of it is left on TryCastShot, shots between floors go on
+                    StartupCheck("M7 the minimum collision distance read not found: only that group fails (undone), shots between floors on", PackZ.Healthy && PackZ.FlightOn
+                        && !PackZ.Failed.Any() && PackZ.Problems.Count == 1 && PackZ.Problems[0].StartsWith("Min collision distance (")
+                        && NoPatches(PackZId, Method(typeof(Verb_LaunchProjectileCE), "TryCastShot", 0)), 1);
+                    yield return MinCollisionShot("M7b", false);
+                    break;
                 case "partoff":
                     StartupCheck("M6 a ProjectZ part the pack builds on is off: shots between floors refused", PackZ.PartsOff && !PackZ.Healthy && !ProjectZ.Api.CombatPartOn(ProjectZ.CombatPart.TargetPicking), 1);
                     yield return CrossRefused("M6");

@@ -244,7 +244,7 @@ CombatExtended.Verb_LaunchProjectileCE::ShiftVecReportFor/2	Thing.get_Position	3
 CombatExtended.Verb_LaunchProjectileCE::ShotAngle/1	GenThing.TrueCenter	1	in the projectile's own frame (Frames)
 CombatExtended.Verb_LaunchProjectileCE::ShotRotation/1	GenThing.TrueCenter	1	in the projectile's own frame (Frames)
 CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	IntVec3Utility.ToIntVec3	1	in the projectile's own frame (Frames)
-CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	LocalTargetInfo.get_Cell	1	in the projectile's own frame (Frames)
+CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	LocalTargetInfo.get_Cell	1	minimum collision distance: the cell's centre read in the shooter's frame (Aim.MinCollision_Transpiler)
 CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	ShiftVecReport.swayDegrees	1	report value, no position
 CombatExtended.Verb_LaunchProjectileCE::TryCastShot/0	Thing.get_Position	3	in the projectile's own frame (Frames)
 CombatExtended.Verb_LaunchProjectileCE::TryDamageWeapon/3	Thing.get_DrawPos	1	in the projectile's own frame (Frames)

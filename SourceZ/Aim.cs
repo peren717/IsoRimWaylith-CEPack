@@ -107,6 +107,70 @@ namespace IsoRimCEPackZ
             }
         }
 
+        // CE's minimum collision distance from the shooter (Verb_LaunchProjectileCE.TryCastShot: GetMinCollisionDistance of
+        // |sourceLoc - currentTarget.Cell.ToIntVec2.ToVector2Shifted()|) reads the target cell's centre in raw map rows, a
+        // band too far for a target on another floor. One frame swap in TryCastShot: that centre is read in the shooter's
+        // frame (TargetInShooterFrame), so CE's own expression and CE's own GetMinCollisionDistance run on it with the real
+        // verb. It is TryCastShot's only target read of the swap kinds and CE's only IntVec2.ToVector2Shifted call; a
+        // transpiler of its own (not Frame_Transpiler's table) keeps it to that one call. The values are CE's: in a locked
+        // burst (KeepBurstOnNoShootLine) currentTarget is already the burst's last target cell.
+        // Not key: if the call is not found (a CE update), this group fails with the startup summary warning and only this
+        // correction is lost (CE's raw-row distance); shots between floors still work. Calls GetMinCollisionDistance makes
+        // elsewhere are left as CE has them: Verb_ThrowGrenade passes its shoot line, already over the ground (frame
+        // transpiler); CE's SOS2 compat copy of TryCastShot (Verb_ShootShipCE) is not corrected (ship maps with floors are
+        // not a case we cover).
+        // Harness: -cepacknomincoll keeps CE's raw-row point (fixb o1 must fail); -cepackfault=mincollision: the call is not
+        // found (mode fault).
+        private static readonly bool NoMinCollision = GenCommandLine.CommandLineArgPassed("cepacknomincoll");
+        public static int MinCollisionSwaps;   // harness: target centres moved into the shooter's frame
+
+        public static void PatchMinCollision(Harmony h) => PackZ.Transpiler(h, ByName(typeof(Verb_LaunchProjectileCE), nameof(Verb_LaunchProjectileCE.TryCastShot), 0), typeof(Aim), nameof(MinCollision_Transpiler));
+
+        public static IEnumerable<CodeInstruction> MinCollision_Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo centre = AccessTools.Method(typeof(IntVec2), nameof(IntVec2.ToVector2Shifted));
+            MethodInfo mine = AccessTools.Method(typeof(Aim), nameof(Shifted2In));
+            List<CodeInstruction> list = instructions.ToList();
+            int found = 0;
+            foreach (CodeInstruction ci in list)
+            {
+                if (!Fault.Is("mincollision") && (ci.opcode == OpCodes.Call || ci.opcode == OpCodes.Callvirt) && ci.operand is MethodInfo mi && mi == centre)
+                {
+                    found++;
+                }
+            }
+            if (found != 1)
+            {
+                throw new InvalidOperationException("Verb_LaunchProjectileCE.TryCastShot: " + found + " target cell centre reads (expected 1)");
+            }
+            foreach (CodeInstruction ci in list)
+            {
+                if ((ci.opcode == OpCodes.Call || ci.opcode == OpCodes.Callvirt) && ci.operand is MethodInfo mi && mi == centre)
+                {
+                    // the cell's address is on the stack: add the verb (this) and call the frame version
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci).MoveBlocksFrom(ci);
+                    yield return new CodeInstruction(OpCodes.Call, mine);
+                    continue;
+                }
+                yield return ci;
+            }
+        }
+
+        public static Vector2 Shifted2In(ref IntVec2 c, Verb v)
+        {
+            Vector2 raw = c.ToVector2Shifted();
+            if (NoMinCollision)
+            {
+                return raw;
+            }
+            Vector3 p = TargetInShooterFrame(new Vector3(raw.x, 0f, raw.y), v);
+            if (p.z != raw.y)
+            {
+                MinCollisionSwaps++;
+            }
+            return new Vector2(p.x, p.z);
+        }
+
         // The compiler's lambdas of a method (the name may find nothing after a CE rebuild: the order then stays CE's own).
         private static IEnumerable<MethodInfo> Closures(Type t, string method) => new[] { t }.Concat(t.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public))
             .SelectMany(x => x.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))

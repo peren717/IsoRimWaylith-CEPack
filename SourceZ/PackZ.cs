@@ -128,6 +128,7 @@ namespace IsoRimCEPackZ
             FlightOn = Try(h, "Flight", Frames.Patch, true, false, typeof(Frames), typeof(Layout));
             Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(FireLine), typeof(Layout));
             Try(h, "Aim extras", Aim.PatchExtras, false, false, typeof(Aim), typeof(Layout));
+            Try(h, "Min collision distance", Aim.PatchMinCollision, false, false, typeof(Aim), typeof(Layout));   // not key: CE's raw-row value when it fails
             Try(h, "Sight", Sight.Patch, true, false, typeof(Sight), typeof(Aim), typeof(FireLine), typeof(Layout));
             Try(h, "Throws", Throws.Patch, true, false, typeof(Throws), typeof(Aim), typeof(Layout));
             Try(h, "Flight extras", Frames.PatchExtras, false, true, typeof(Frames));
