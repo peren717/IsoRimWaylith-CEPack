@@ -47,17 +47,20 @@ namespace IsoRimCEPackZ
         }
 
         // ------------------------------------------------------------------ o1: the owner's answer is followed
-        // A shot from floor 1 down at the ground: its minimum collision distance is CE's own GetMinCollisionDistance (called
-        // through a delegate, no copy). For the check CE's method is patched to answer a marker value; the shot must take it.
-        private const float MinCollisionMarker = 7.77f;
+        // A shot from floor 1 down at the ground: its minimum collision distance is CE's own GetMinCollisionDistance, called
+        // by CE with the distance on one frame (Frames.MinCollision_Prefix), not the raw-row one a band too far. For the
+        // check CE's method is patched to answer its argument + MinCollisionOffset, so the projectile's value names the
+        // distance CE's call got: it must be the one-floor distance of the fixture, and not the raw-row one.
+        // -cepacknomincoll (the fix off) must fail the check.
+        private const float MinCollisionOffset = 1000f;
         private static bool minMark;
         private static readonly List<(string by, float min)> minSeen = new List<(string, float)>();
 
-        public static void MinCollision_Postfix(ref float __result)
+        public static void MinCollision_Postfix(float __0, ref float __result)
         {
             if (minMark)
             {
-                __result = MinCollisionMarker;
+                __result = __0 + MinCollisionOffset;
             }
         }
 
@@ -75,8 +78,13 @@ namespace IsoRimCEPackZ
             // (check 2's balcony, moved to a block of its own)
             Wipe(110, 171, 125, 198);
             Slab(115, 176, 119, 180);
-            Pawn target = Target(On(117, 193, 0));
-            Pawn shooter = Colonist(On(117, 180, 1), "Gun_AssaultRifle");
+            IntVec3 targetCell = On(117, 193, 0), shooterCell = On(117, 180, 1);
+            Pawn target = Target(targetCell);
+            Pawn shooter = Colonist(shooterCell, "Gun_AssaultRifle");
+            // CE's distance runs from the shooter's centre (no barrel offset on this gun) to the target cell's centre: raw
+            // rows, and on one floor (the target's ground cell on the shooter's floor)
+            Vector3 from = shooterCell.ToVector3Shifted(), rawTo = targetCell.ToVector3Shifted(), oneTo = On(117, 193, 1).ToVector3Shifted();
+            float raw = new Vector2(rawTo.x - from.x, rawTo.z - from.z).magnitude, one = new Vector2(oneTo.x - from.x, oneTo.z - from.z).magnitude;
             Harmony h = new Harmony("peren.isorimwaylith.cepack.testz.o1");
             MethodInfo launch = typeof(ProjectileCE).GetMethods().First(x => x.Name == "Launch" && x.GetParameters().Length == 3 && x.DeclaringType == typeof(ProjectileCE));
             h.Patch(AccessTools.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) }), postfix: new HarmonyMethod(typeof(TestZ), nameof(MinCollision_Postfix)));
@@ -92,9 +100,13 @@ namespace IsoRimCEPackZ
             h.UnpatchAll(h.Id);
             List<Shot> launched = By(shooter, Launches, t0);
             List<float> mine = minSeen.Where(s => s.by == shooter.ThingID).Select(s => s.min).ToList();
-            Out("  can hit " + can + ", launched " + launched.Count + ", minimum collision distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))));
-            Check("o1 a shot between floors takes CE's own (patched) minimum collision distance", launched.Count > 0 && mine.Count > 0 && mine.All(v => Mathf.Abs(v - MinCollisionMarker) < 1e-4f),
-                "can hit " + can + ", launched " + launched.Count + ", distances " + string.Join(",", mine.Select(v => v.ToString("0.00"))) + " (marker " + MinCollisionMarker + ")");
+            bool stayed = shooter.Position == shooterCell && target.Position == targetCell;
+            float want = one + MinCollisionOffset, rawWant = raw + MinCollisionOffset;
+            string seen = string.Join(",", mine.Select(v => v.ToString("0.000")));
+            Out("  can hit " + can + ", launched " + launched.Count + ", fixes " + Frames.MinCollisionFixes + ", minimum collision distances " + seen + " (one floor " + want.ToString("0.000") + ", raw rows " + rawWant.ToString("0.000") + ")");
+            Check("o1 a shot between floors: CE's (patched) minimum collision distance of the one-floor distance, not the raw-row one",
+                launched.Count > 0 && mine.Count > 0 && stayed && Mathf.Abs(want - rawWant) > 1f && mine.All(v => Mathf.Abs(v - want) < 1e-3f && Mathf.Abs(v - rawWant) > 1f),
+                "can hit " + can + ", launched " + launched.Count + ", in place " + stayed + ", distances " + seen + " (one floor " + want.ToString("0.000") + ", raw rows " + rawWant.ToString("0.000") + ")");
             Gone(shooter, target);
         }
 

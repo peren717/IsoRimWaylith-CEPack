@@ -64,7 +64,7 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 
 | Mode | Covers |
 |---|---|
-| `fixb` | fixed bugs, kept as regressions |
+| `fixb` | fixed bugs, kept as regressions. `-cepacknomincoll` leaves the minimum collision fix out (o1 must fail); `-cepackfault=mincollision` makes it fail in play (one warning, then shots between floors are refused) |
 | `suite` | shots between floors: flight, sight, hits, floor planes |
 | `p4` | CIWS, turrets, CE's AI between floors |
 | `areas` | explosions, suppression between floors |

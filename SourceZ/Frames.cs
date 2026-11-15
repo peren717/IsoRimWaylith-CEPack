@@ -70,7 +70,7 @@ namespace IsoRimCEPackZ
             {
                 throw new MissingMethodException("ProjectileCE.Launch(Thing, Vector2, Thing)");
             }
-            BindMinCollision();
+            PackZ.Prefix(h, PackZ.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) }), typeof(Frames), nameof(MinCollision_Prefix));
             PackZ.Postfix(h, launch, typeof(Frames), nameof(Launch_Postfix));
             PackZ.Postfix(h, PackZ.Method(typeof(ProjectileCE), nameof(ProjectileCE.Throw)), typeof(Frames), nameof(Throw_Postfix));
             PackZ.Prefix(h, PackZ.Method(typeof(ProjectileCE), nameof(ProjectileCE.RayCast)), typeof(Frames), nameof(RayCast_Prefix));
@@ -275,13 +275,8 @@ namespace IsoRimCEPackZ
 
         // ------------------------------------------------------------------ launch normalisation
         // A projectile starting outside [0, S) of its frame (a world shell arriving high, a tall launcher) is moved to the
-        // frame of its absolute height. Also: CE's minimum collision distance from the shooter is worked out from the raw
-        // distance to the target (TryCastShot), which is a band too far for a target on another floor.
-        public static void Launch_Postfix(ProjectileCE __instance)
-        {
-            Normalise(__instance);
-            FixMinCollision(__instance);
-        }
+        // frame of its absolute height.
+        public static void Launch_Postfix(ProjectileCE __instance) => Normalise(__instance);
 
         public static void Throw_Postfix(ProjectileCE __instance) => Normalise(__instance);
 
@@ -317,56 +312,66 @@ namespace IsoRimCEPackZ
             }
         }
 
-        private static void FixMinCollision(ProjectileCE p)
+        // ------------------------------------------------------------------ minimum collision distance
+        // CE's minimum collision distance from the shooter (Verb_LaunchProjectileCE.TryCastShot: GetMinCollisionDistance of
+        // the distance from sourceLoc to the centre of currentTarget's cell) is measured in raw map rows, a band too far for a
+        // target on another floor. At CE's call, with the real verb: between floors (sourceLoc's band against the target
+        // cell's) that distance is replaced by the distance on one frame (the target's cell moved into the shooter's frame,
+        // TranslateRows), then CE's own method runs on it. Only CE's raw-row shooter-to-target distance is replaced; a call
+        // with any other argument is left as it is (Verb_ThrowGrenade passes its shoot line, already over the ground through
+        // Aim's frame transpiler). The values are the ones CE has just used: in a locked burst (KeepBurstOnNoShootLine)
+        // currentTarget is already the burst's last target cell. On one floor and without floors nothing changes.
+        private static readonly AccessTools.FieldRef<Verb_LaunchProjectileCE, Vector2> sourceLocRef = AccessTools.FieldRefAccess<Verb_LaunchProjectileCE, Vector2>("sourceLoc");
+
+        // The argument is CE's raw-row distance when it is within this many cells of it (between floors the raw-row and the
+        // ground distance differ by about a band's rows).
+        private const float SameDistance = 0.01f;
+
+        // Off after a failure in play (one warning; shots between floors are refused from then on), or in the harness:
+        // -cepacknomincoll leaves CE's raw-row distance (fixb o1 must then fail).
+        private static bool minCollisionOff = GenCommandLine.CommandLineArgPassed("cepacknomincoll");
+        public static int MinCollisionFixes;   // harness
+
+        public static void MinCollision_Prefix(Verb_LaunchProjectileCE __instance, ref float __0)
         {
-            Layout L = Layout.Of(p.Map);
-            if (L == null || !p.intendedTarget.IsValid || p.def.projectile.alwaysFreeIntercept)
+            if (minCollisionOff)
             {
                 return;
             }
-            Vector2 o = originRef(p);
-            int ks = L.FrameOfRow(Mathf.FloorToInt(o.y));
-            int kt = L.FrameOf(p.intendedTarget.Cell);
-            if (ks == kt || ks == Layout.None || kt == Layout.None)
-            {
-                return;
-            }
-            if (minCollision == null)
-            {
-                return;   // (failed in play: shots between floors are refused)
-            }
-            Vector3 t = L.TranslateRows(p.intendedTarget.Cell.ToVector3Shifted(), kt, ks);
-            float dist = new Vector2(t.x - o.x, t.z - o.y).magnitude;
-            float min;
             try
             {
-                min = minCollision(null, dist);
+                __0 = OneFrameDistance(__instance, __0);
             }
             catch (Exception e)
             {
-                // (CE's method now reads its verb: a CE update met in play; the raw-row value CE set is wrong between
-                // floors, so shots between floors are refused from now on, as after a key group failed)
-                minCollision = null;
+                // (CE's own value stays for this shot; it is wrong between floors, so shots between floors are refused from
+                // now on, as after a key group failed)
+                minCollisionOff = true;
                 PackZ.FailInPlay("Flight (Combat Extended's GetMinCollisionDistance)", PackZ.Reason(e));
-                return;
             }
-            PackZ.Changed++;
-            p.minCollisionDistance = min;
         }
 
-        // CE's own Verb_LaunchProjectileCE.GetMinCollisionDistance(distance), called non-virtually with a null verb: it reads
-        // no instance state (CopyWatches row Frames.FixMinCollision warns when CE changes it). Bound in the flight group: if
-        // it is missing, the group fails and shots between floors are refused.
-        private static Func<Verb_LaunchProjectileCE, float, float> minCollision;
-
-        private static void BindMinCollision()
+        private static float OneFrameDistance(Verb_LaunchProjectileCE verb, float distance)
         {
-            MethodInfo m = AccessTools.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) });
-            if (m == null || m.IsStatic || m.ReturnType != typeof(float))
+            Layout L = Layout.Of(verb.caster?.Map);
+            LocalTargetInfo target = verb.CurrentTarget;
+            if (L == null || !target.IsValid)
             {
-                throw new MissingMethodException("Verb_LaunchProjectileCE.GetMinCollisionDistance(float)");
+                return distance;
             }
-            minCollision = PackZ.NonVirtual<Func<Verb_LaunchProjectileCE, float, float>>(m);
+            Vector2 o = sourceLocRef(verb);
+            IntVec3 cell = target.Cell;
+            int ks = L.FrameOfRow(Mathf.FloorToInt(o.y));
+            int kt = L.FrameOf(cell);
+            if (ks == kt || ks == Layout.None || kt == Layout.None || Mathf.Abs((o - cell.ToIntVec2.ToVector2Shifted()).magnitude - distance) > SameDistance)
+            {
+                return distance;
+            }
+            Fault.Throw("mincollision");   // harness: the fix fails in play
+            Vector3 t = L.TranslateRows(cell.ToVector3Shifted(), kt, ks);
+            PackZ.Changed++;
+            MinCollisionFixes++;
+            return new Vector2(t.x - o.x, t.z - o.y).magnitude;
         }
 
         // ------------------------------------------------------------------ roofs

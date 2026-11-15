@@ -44,9 +44,6 @@ namespace IsoRimCEPackZ
             new Row { Copy = "WorldShells.ExitOnBand", Find = () => Method(typeof(CE_Utility), "ExitCell", 2), Hash = "da9cc609b81c15ee" },
             new Row { Copy = "WorldShells.OrderWorld_Prefix", Find = () => Method(typeof(Building_TurretGunCE), "TryOrderAttackWorldTile", 2), Hash = "083dd4af960f201c" },
             new Row { Copy = "WorldShells.RandomCell", Find = () => Method(typeof(ShellingUtility), "GetRandomImpactCell", 0), Hash = "1d4a0d5d2ff1a28c" },
-            // not a copy: called non-virtually with a null verb, so it must not read instance state
-            new Row { Copy = "Frames.FixMinCollision", Find = () => Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", 1), Hash = "a35f97cfa2fb2078",
-                About = "calls Combat Extended's method non-virtually with a null verb: it must not read instance state" },
         };
 
         // The hash a row is checked against. Harness: -cepackfault=watchcopy gives the first row a wrong one (one IsoRim
