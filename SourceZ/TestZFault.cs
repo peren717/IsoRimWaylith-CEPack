@@ -97,6 +97,14 @@ namespace IsoRimCEPackZ
                         && NoPatches(PackZId, Method(typeof(Verb_LaunchProjectileCE), "TryCastShot", 0)), 1);
                     yield return MinCollisionShot("M7b", false);
                     break;
+                case "lightcell":
+                    // CE's light and roof reads of the target cell not found (a CE update): only that non-key group fails (the
+                    // startup summary line), its transpiler is not on ShiftVecReportFor, shots between floors go on
+                    StartupCheck("M8 the light and roof reads of the target cell not found: only that group fails, shots between floors on", PackZ.Healthy && PackZ.FlightOn
+                        && !PackZ.Failed.Any() && PackZ.Problems.Count == 1 && PackZ.Problems[0].StartsWith("Light and weather at the target cell (")
+                        && !HasTranspiler(Method(typeof(Verb_LaunchProjectileCE), "ShiftVecReportFor", 2), nameof(Aim.LightCell_Transpiler)), 1);
+                    yield return LightCellShot("M8b", false);
+                    break;
                 case "partoff":
                     StartupCheck("M6 a ProjectZ part the pack builds on is off: shots between floors refused", PackZ.PartsOff && !PackZ.Healthy && !ProjectZ.Api.CombatPartOn(ProjectZ.CombatPart.TargetPicking), 1);
                     yield return CrossRefused("M6");
@@ -131,6 +139,12 @@ namespace IsoRimCEPackZ
         private static MethodBase Getter(Type t, string name) => AccessTools.PropertyGetter(t, name);
 
         private static MethodBase CanHitTargetFrom3() => Method(typeof(Verb_LaunchProjectileCE), "CanHitTargetFrom", 3);
+
+        private static bool HasTranspiler(MethodBase m, string name)
+        {
+            Patches p = m != null ? Harmony.GetPatchInfo(m) : null;
+            return p != null && p.Transpilers.Any(t => t.PatchMethod.Name == name);
+        }
 
         private static bool HasPatch(string owner, MethodBase m)
         {

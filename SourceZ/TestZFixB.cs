@@ -27,7 +27,7 @@ namespace IsoRimCEPackZ
             {
                 ("b1", BlockerDomes), ("b1d", BlockerLanding), ("b1e", BlockerSameFloor),
                 ("b2a", () => CompCiws(0)), ("b2b", () => CompCiws(1)), ("b2c", () => CompCiws(2)),
-                ("w1", WorldArrival), ("w2", WorldFire), ("o1", OwnerMinCollision),
+                ("w1", WorldArrival), ("w2", WorldFire), ("o1", OwnerMinCollision), ("l1", LightCell), ("s1", SlabEdgeSpotting),
             };
             Check("M13 patch groups landed (other mods' shields, CIWS comp targets)", !PackZ.Failed.Any() && Ciws.On, "failed " + string.Join(",", PackZ.Failed) + ", CIWS " + Ciws.On);
             foreach ((string id, Func<IEnumerator<int>> run) in all)

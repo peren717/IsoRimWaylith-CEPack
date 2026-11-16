@@ -126,9 +126,14 @@ namespace IsoRimCEPackZ
             H = h;
             bool gate = Try(h, "Gate", Gate.Patch, false, false, typeof(Gate), typeof(Layout));   // the refusal itself first
             FlightOn = Try(h, "Flight", Frames.Patch, true, false, typeof(Frames), typeof(Layout));
-            Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(FireLine), typeof(Layout));
+            bool aimOn = Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(FireLine), typeof(Layout));
             Try(h, "Aim extras", Aim.PatchExtras, false, false, typeof(Aim), typeof(Layout));
             Try(h, "Min collision distance", Aim.PatchMinCollision, false, false, typeof(Aim), typeof(Layout));   // not key: CE's raw-row value when it fails
+            if (aimOn)
+            {
+                // not key: light and weather read at the shooter-frame cell when it fails (on the aim group's method: only with it)
+                Try(h, "Light and weather at the target cell", Aim.PatchLightCell, false, false, typeof(Aim), typeof(Layout));
+            }
             Try(h, "Sight", Sight.Patch, true, false, typeof(Sight), typeof(Aim), typeof(FireLine), typeof(Layout));
             Try(h, "Throws", Throws.Patch, true, false, typeof(Throws), typeof(Aim), typeof(Layout));
             Try(h, "Flight extras", Frames.PatchExtras, false, true, typeof(Frames));
@@ -415,33 +420,6 @@ namespace IsoRimCEPackZ
             TargetGeometry.Disable();
             SurfaceExplosions.Disable();
             Log.Warning(Tag + part + " failed in play (" + reason + "): shots between floors are refused from now on, shots on one floor are as Combat Extended has them.");
-        }
-
-        // A delegate that calls CE's instance method m itself, not an override (IL call, not callvirt; Harmony's patches on
-        // m still run): the instance first, then m's parameters. The delegate type must match that exactly (checked: a
-        // class's closed, non-static method; else ArgumentException).
-        internal static D NonVirtual<D>(MethodInfo m) where D : Delegate
-        {
-            Type owner = m?.DeclaringType;
-            if (m == null || m.IsStatic || owner == null || owner.IsValueType || owner.ContainsGenericParameters || m.ContainsGenericParameters)
-            {
-                throw new ArgumentException("NonVirtual: not a closed instance method of a class: " + owner?.Name + "." + m?.Name);
-            }
-            Type[] args = new[] { owner }.Concat(m.GetParameters().Select(p => p.ParameterType)).ToArray();
-            MethodInfo invoke = typeof(D).GetMethod("Invoke");
-            if (invoke.ReturnType != m.ReturnType || !invoke.GetParameters().Select(p => p.ParameterType).SequenceEqual(args))
-            {
-                throw new ArgumentException("NonVirtual: " + typeof(D).Name + " does not match " + owner.Name + "." + m.Name);
-            }
-            DynamicMethod dm = new DynamicMethod("IsoRimCEPackZ_call_" + m.Name, m.ReturnType, args, typeof(PackZ).Module, true);
-            ILGenerator il = dm.GetILGenerator();
-            for (int i = 0; i < args.Length; i++)
-            {
-                il.Emit(OpCodes.Ldarg, (short)i);
-            }
-            il.Emit(OpCodes.Call, m);
-            il.Emit(OpCodes.Ret);
-            return (D)dm.CreateDelegate(typeof(D));
         }
     }
 

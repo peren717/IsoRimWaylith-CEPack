@@ -1,6 +1,7 @@
 # What Combat Extended reads of positions, cell distances and its shift report, per method, as of CE DLL md5 de5aa969.
 # The allow-list of mode cereads (SourceZ/TestCeReads.cs): method, read, count, how the pack deals with it (tab separated).
 # A new row or a higher count fails the mode. After a CE update: decide each new read, then add its row here.
+# Not listed, not scanned: ShiftVecReportFor/2's targetCell argument (no member read) where CE reads the light and the roof (LightingTracker.CombatGlowAtFor, GridsUtility.Roofed): the real target cell between floors (Aim.LightCell_Transpiler, which fails its group if it does not find exactly those two reads).
 # Not listed, not scanned: TryFindCEShootLineFromTo's CellRect.ClosestCellTo, the target cell it gives ShootLeanUtility; ProjectZ's ShootLean_Patch puts that on the shooter's floor (mode firing, L1).
 CombatExtended.Building_TurretGunCE+<>c__DisplayClass::<TryFindNewTarget>b__/1	Thing.get_Position	2	turrets: Turrets, Scope
 CombatExtended.Building_TurretGunCE+<GetGizmos>d__::MoveNext/0	Thing.get_Position	1	turrets: Turrets, Scope

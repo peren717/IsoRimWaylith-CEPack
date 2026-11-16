@@ -64,7 +64,7 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 
 | Mode | Covers |
 |---|---|
-| `fixb` | fixed bugs, kept as regressions. `-cepacknomincoll` leaves the minimum collision distance in raw map rows (o1 must fail) |
+| `fixb` | fixed bugs, kept as regressions. `-cepacknomincoll` leaves the minimum collision distance in raw map rows (o1 must fail); `-cepacknolightcell` leaves light and weather at the shooter-frame cell (l1 must fail). s1: mortar spotting at a slab edge |
 | `suite` | shots between floors: flight, sight, hits, floor planes |
 | `p4` | CIWS, turrets, CE's AI between floors |
 | `areas` | explosions, suppression between floors |
@@ -73,7 +73,7 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 | `edge` | map edges, void rows, odd placements |
 | `save` | save and load in flight |
 | `fight` | a real fight; also run with `-cepacknoz` (Z part off) |
-| `fault` | no extra argument: a healthy run. Then `-cepackfault=<x>` for each of `frames aim turrets shields draw flightgroup areasgroup aimswap scoperead partoff mincollision`: a part breaks, the rest must carry on |
+| `fault` | no extra argument: a healthy run. Then `-cepackfault=<x>` for each of `frames aim turrets shields draw flightgroup areasgroup aimswap scoperead partoff mincollision lightcell`: a part breaks, the rest must carry on |
 | `m230lf` | a modded turret (needs the turret pack above) |
 | `posture` | CE postures on the 3D figures |
 | `popup` | popping up to fire over cover |
