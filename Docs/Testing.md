@@ -11,6 +11,7 @@ For contributors and their coding agents. Read this before changing anything und
 - Per-mod logic stays in that mod. New or changed Api follows the rules in `Docs/Api.md` ("Adding to the Api").
 - Everything must fail soft: a CE update or another mod's bad answer switches that part off with one warning, it never breaks shooting.
 - Bugs of CE or other mods themselves are noted, not fixed here.
+- Call CE's own code rather than copy it (inside ProjectZ's 3D scope, Api 10, where that answers what it asks). A copy that can't be avoided says "Copied from CE <Type.Method>" and gets a row in `SourceZ/CopyWatches.cs` with the CE method's hash (mode `cereads`).
 
 ## Set up
 
@@ -63,7 +64,7 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 
 | Mode | Covers |
 |---|---|
-| `fixb` | fixed bugs, kept as regressions |
+| `fixb` | fixed bugs, kept as regressions. `-cepacknomincoll` leaves the minimum collision distance in raw map rows (o1 must fail); `-cepacknolightcell` leaves light and weather at the shooter-frame cell (l1 must fail). s1: mortar spotting at a slab edge |
 | `suite` | shots between floors: flight, sight, hits, floor planes |
 | `p4` | CIWS, turrets, CE's AI between floors |
 | `areas` | explosions, suppression between floors |
@@ -72,13 +73,13 @@ Before a PR: every mode below on `-cepackfloors=2` and `3` (posture, popup, draf
 | `edge` | map edges, void rows, odd placements |
 | `save` | save and load in flight |
 | `fight` | a real fight; also run with `-cepacknoz` (Z part off) |
-| `fault` | no extra argument: a healthy run. Then `-cepackfault=<x>` for each of `frames aim turrets shields draw flightgroup areasgroup aimswap scoperead partoff`: a part breaks, the rest must carry on |
+| `fault` | no extra argument: a healthy run. Then `-cepackfault=<x>` for each of `frames aim turrets shields draw flightgroup areasgroup aimswap scoperead partoff mincollision lightcell`: a part breaks, the rest must carry on |
 | `m230lf` | a modded turret (needs the turret pack above) |
 | `posture` | CE postures on the 3D figures |
 | `popup` | popping up to fire over cover |
 | `drafted` | the drafted idle rule |
 | `bench` | CE's loading bench built and worked in the real flow. Needs the ammo system ON, see below |
-| `cereads` | CE's reads of positions and distances against `Docs/CeReads.tsv`, no game state. Fails on a new read after a CE update: review `cereads_new.tsv` in the run's folder, then update the list (`-cepackreadswrite` writes the full list as `cereads_all.tsv`) |
+| `cereads` | CE's reads of positions and distances against `Docs/CeReads.tsv`, no game state. Fails on a new read after a CE update: review `cereads_new.tsv` in the run's folder, then update the list (`-cepackreadswrite` writes the full list as `cereads_all.tsv`). Also checks every CE method the pack copies (`SourceZ/CopyWatches.cs`) against the IL hash its copy follows: after a CE update a failing row names the copy to review; `cecopies_now.tsv` has the hashes now to paste once it is. `-cepackfault=watchcopy` gives the first row a wrong hash: one IsoRim warning at startup and that check fails |
 | `api` | the extension Api with a fake siege engine (`Docs/Api.md`); `-cepackapi=<ids>` picks checks |
 | `apiload` | with `-cepacknoz`: a save made in `api` loads without the Z part. Always straight after `api`, see below |
 | `perf` | one fixed big fight, for comparing cost; `-cepackperfreg` adds idle registrations. Interleave runs of the two builds: the fight varies about 4% between runs |

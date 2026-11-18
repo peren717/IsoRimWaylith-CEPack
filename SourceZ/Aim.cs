@@ -98,6 +98,70 @@ namespace IsoRimCEPackZ
             }
         }
 
+        // CE's minimum collision distance from the shooter (Verb_LaunchProjectileCE.TryCastShot: GetMinCollisionDistance of
+        // |sourceLoc - currentTarget.Cell.ToIntVec2.ToVector2Shifted()|) reads the target cell's centre in raw map rows, a
+        // band too far for a target on another floor. One frame swap in TryCastShot: that centre is read in the shooter's
+        // frame (TargetInShooterFrame), so CE's own expression and CE's own GetMinCollisionDistance run on it with the real
+        // verb. It is TryCastShot's only target read of the swap kinds and CE's only IntVec2.ToVector2Shifted call; a
+        // transpiler of its own (not Frame_Transpiler's table) keeps it to that one call. The values are CE's: in a locked
+        // burst (KeepBurstOnNoShootLine) currentTarget is already the burst's last target cell.
+        // Not key: if the call is not found (a CE update), this group fails with the startup summary warning and only this
+        // correction is lost (CE's raw-row distance); shots between floors still work. Calls GetMinCollisionDistance makes
+        // elsewhere are left as CE has them: Verb_ThrowGrenade passes its shoot line, already over the ground (frame
+        // transpiler); CE's SOS2 compat copy of TryCastShot (Verb_ShootShipCE) is not corrected (ship maps with floors are
+        // not a case we cover).
+        // Harness: -cepacknomincoll keeps CE's raw-row point (fixb o1 must fail); -cepackfault=mincollision: the call is not
+        // found (mode fault).
+        private static readonly bool NoMinCollision = GenCommandLine.CommandLineArgPassed("cepacknomincoll");
+        public static int MinCollisionSwaps;   // harness: target centres moved into the shooter's frame
+
+        public static void PatchMinCollision(Harmony h) => PackZ.Transpiler(h, ByName(typeof(Verb_LaunchProjectileCE), nameof(Verb_LaunchProjectileCE.TryCastShot), 0), typeof(Aim), nameof(MinCollision_Transpiler));
+
+        public static IEnumerable<CodeInstruction> MinCollision_Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo centre = AccessTools.Method(typeof(IntVec2), nameof(IntVec2.ToVector2Shifted));
+            MethodInfo mine = AccessTools.Method(typeof(Aim), nameof(Shifted2In));
+            List<CodeInstruction> list = instructions.ToList();
+            int found = 0;
+            foreach (CodeInstruction ci in list)
+            {
+                if (!Fault.Is("mincollision") && (ci.opcode == OpCodes.Call || ci.opcode == OpCodes.Callvirt) && ci.operand is MethodInfo mi && mi == centre)
+                {
+                    found++;
+                }
+            }
+            if (found != 1)
+            {
+                throw new InvalidOperationException("Verb_LaunchProjectileCE.TryCastShot: " + found + " target cell centre reads (expected 1)");
+            }
+            foreach (CodeInstruction ci in list)
+            {
+                if ((ci.opcode == OpCodes.Call || ci.opcode == OpCodes.Callvirt) && ci.operand is MethodInfo mi && mi == centre)
+                {
+                    // the cell's address is on the stack: add the verb (this) and call the frame version
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci).MoveBlocksFrom(ci);
+                    yield return new CodeInstruction(OpCodes.Call, mine);
+                    continue;
+                }
+                yield return ci;
+            }
+        }
+
+        public static Vector2 Shifted2In(ref IntVec2 c, Verb v)
+        {
+            Vector2 raw = c.ToVector2Shifted();
+            if (NoMinCollision)
+            {
+                return raw;
+            }
+            Vector3 p = TargetInShooterFrame(new Vector3(raw.x, 0f, raw.y), v);
+            if (p.z != raw.y)
+            {
+                MinCollisionSwaps++;
+            }
+            return new Vector2(p.x, p.z);
+        }
+
         // The compiler's lambdas of a method (the name may find nothing after a CE rebuild: the order then stays CE's own).
         private static IEnumerable<MethodInfo> Closures(Type t, string method) => new[] { t }.Concat(t.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public))
             .SelectMany(x => x.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
@@ -704,8 +768,10 @@ namespace IsoRimCEPackZ
         internal static readonly Func<Thing, Bounds> boundsFor = AccessTools.MethodDelegate<Func<Thing, Bounds>>(AccessTools.Method(typeof(CE_Utility), Fault.Name(nameof(CE_Utility.GetBoundsFor), "aim"), new[] { typeof(Thing) }));
         private static CoverFn coverFn;
 
-        // CE: AdjustShotHeight (raise the shot over the cover in front of a taller target), with the target's and its cover's
-        // heights in the shooter's frame and the ground distance. One floor: CE's own.
+        // Copied from CE Verb_LaunchProjectileCE.AdjustShotHeight (watched, CopyWatches): raise the shot over the cover in
+        // front of a taller target, with the target's and its cover's heights in the shooter's frame and the ground distance
+        // (CE's bounds heights are over each thing's own floor, its distance is DistanceTo: neither is answerable by a
+        // scope). One floor: CE's own.
         public static bool AdjustShotHeight_Prefix(Verb_LaunchProjectileCE __instance, Thing caster, LocalTargetInfo target, ref float shotHeight, ref float __result)
         {
             int up = FloorsUp(__instance, target.Cell);
@@ -737,11 +803,11 @@ namespace IsoRimCEPackZ
         }
 
         // ShiftVecReportFor(target, cell): TryCastShot passes the target cell in the shooter's frame; the light and the
-        // weather are those of the real target cell (CE: CombatGlowAtFor, Roofed).
+        // weather are those of the real target cell (LightCell_Transpiler, a group of its own).
         // The report's shot source: its one reader is CE's lead (GetRandLeadVec), which takes it from a position in the
         // target's band. So for a pawn on another floor it is moved there, and it is NOT the true shot source any more.
         // Recheck on CE updates that nothing else reads it (the CE reads snapshot, mode cereads, fails if a reader appears).
-        public static void Report_Postfix(Verb_LaunchProjectileCE __instance, LocalTargetInfo target, IntVec3 targetCell, ShiftVecReport __result)
+        public static void Report_Postfix(Verb_LaunchProjectileCE __instance, LocalTargetInfo target, ShiftVecReport __result)
         {
             if (__result != null && target.Thing is Pawn)
             {
@@ -756,19 +822,184 @@ namespace IsoRimCEPackZ
                     }
                 }
             }
-            if (__result == null || !target.IsValid || target.Cell == targetCell || !CrossFloor(__instance, target.Cell))
-            {
-                return;
-            }
-            Map map = __instance.caster.Map;
-            IntVec3 from = __instance.caster.Position;
-            PackZ.Changed++;
-            __result.lightingShift = CE_Utility.GetLightingShift(__instance.Shooter, map.GetLightingTracker().CombatGlowAtFor(from, target.Cell));
-            bool ignore = __instance.EquipmentSource != null && __instance.EquipmentSource.TryGetComp<CompUniqueWeapon>(out CompUniqueWeapon comp) && comp.IgnoreAccuracyMaluses;
-            __result.weatherShift = !ignore && (!from.Roofed(map) || !target.Cell.Roofed(map)) ? 1f - map.weatherManager.CurWeatherAccuracyMultiplier : 0f;
         }
 
         private static readonly AccessTools.FieldRef<ShiftVecReport, Vector2> shotSourceRef = AccessTools.FieldRefAccess<ShiftVecReport, Vector2>("shotSource");
+
+        // ------------------------------------------------------------------ light and weather at the real target cell
+        // Verb_LaunchProjectileCE.ShiftVecReportFor(target, targetCell): TryCastShot passes the target cell in the shooter's
+        // frame (CE's distance needs it there). CE also reads the light and the roof at targetCell:
+        //   lightingShift = GetLightingShift(Shooter, LightingTracker.CombatGlowAtFor(caster.Position, targetCell))
+        //   weatherShift  = CE's weather shift unless Roofed(caster.Position) and Roofed(targetCell)
+        // Between floors those two reads must see the real target cell (target.Cell). One swap: the targetCell argument of
+        // exactly those two calls (found by the call that takes it off the stack, TakenBy) goes through RealTargetCell. CE's
+        // own expressions and every other read of targetCell (shotDist, ...) stay CE's, and the report is computed once.
+        // On one floor and without floors RealTargetCell returns targetCell itself.
+        // Not key, applied only when the aim group landed: if the two reads are not found (a CE update), this group fails
+        // with the startup summary warning and only this correction is lost (light and weather read at the shooter-frame
+        // cell); shots between floors still work.
+        // Harness: -cepacknolightcell keeps CE's targetCell (fixb l1 must fail; the test also flips it to read the
+        // shooter-frame values); -cepackfault=lightcell: the reads are not found (mode fault).
+        public static bool NoLightCell = GenCommandLine.CommandLineArgPassed("cepacknolightcell");
+        public static int LightCellSwaps;   // harness: light or roof reads moved to the real target cell
+
+        public static void PatchLightCell(Harmony h) => PackZ.Transpiler(h, ByName(typeof(Verb_LaunchProjectileCE), "ShiftVecReportFor", 2), typeof(Aim), nameof(LightCell_Transpiler));
+
+        public static IEnumerable<CodeInstruction> LightCell_Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            MethodInfo glow = AccessTools.Method(typeof(LightingTracker), nameof(LightingTracker.CombatGlowAtFor), new[] { typeof(IntVec3), typeof(IntVec3) });
+            MethodInfo roofed = AccessTools.Method(typeof(GridsUtility), nameof(GridsUtility.Roofed), new[] { typeof(IntVec3), typeof(Map) });
+            MethodInfo mine = AccessTools.Method(typeof(Aim), nameof(RealTargetCell));
+            List<CodeInstruction> list = instructions.ToList();
+            // the loads of targetCell (argument 2) that CombatGlowAtFor takes as its second argument or Roofed as its first
+            HashSet<int> at = new HashSet<int>();
+            int glows = 0, roofs = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (Fault.Is("lightcell") || !list[i].IsLdarg(2) || !TakenBy(list, i, out MethodBase by, out int arg))
+                {
+                    continue;
+                }
+                if (by == glow && arg == 2)
+                {
+                    glows++;
+                    at.Add(i);
+                }
+                else if (by == roofed && arg == 0)
+                {
+                    roofs++;
+                    at.Add(i);
+                }
+            }
+            if (glows != 1 || roofs != 1)
+            {
+                throw new InvalidOperationException("Verb_LaunchProjectileCE.ShiftVecReportFor: " + glows + " light and " + roofs + " roof reads of the target cell (expected 1 and 1)");
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                yield return list[i];
+                if (at.Contains(i))
+                {
+                    // targetCell is on the stack: add the verb (this) and the target, and call the real-cell version
+                    yield return new CodeInstruction(OpCodes.Ldarg_0);
+                    yield return new CodeInstruction(OpCodes.Ldarg_1);
+                    yield return new CodeInstruction(OpCodes.Call, mine);
+                }
+            }
+        }
+
+        // The call that takes the value pushed by list[i] off the stack, and that value's place among the call's stack
+        // arguments (the instance first). Walked forward over straight-line code only: false at a label, a branch or an
+        // instruction whose stack effect is not plain.
+        private static bool TakenBy(List<CodeInstruction> list, int i, out MethodBase by, out int arg)
+        {
+            by = null;
+            arg = -1;
+            int above = 0;   // values pushed over it since
+            for (int j = i + 1; j < list.Count; j++)
+            {
+                CodeInstruction ci = list[j];
+                FlowControl flow = ci.opcode.FlowControl;
+                if (ci.labels.Count > 0 || (flow != FlowControl.Next && flow != FlowControl.Call))
+                {
+                    return false;
+                }
+                int pops, pushes;
+                bool call = (ci.opcode == OpCodes.Call || ci.opcode == OpCodes.Callvirt) && ci.operand is MethodBase;
+                if (call)
+                {
+                    MethodBase mb = (MethodBase)ci.operand;
+                    pops = mb.GetParameters().Length + (mb.IsStatic ? 0 : 1);
+                    pushes = mb is MethodInfo mi && mi.ReturnType != typeof(void) ? 1 : 0;
+                }
+                else
+                {
+                    pops = Pops(ci.opcode.StackBehaviourPop);
+                    pushes = Pushes(ci.opcode.StackBehaviourPush);
+                    if (pops < 0 || pushes < 0)
+                    {
+                        return false;
+                    }
+                }
+                if (pops > above)
+                {
+                    if (!call)
+                    {
+                        return false;   // taken by something other than a call
+                    }
+                    by = (MethodBase)ci.operand;
+                    arg = pops - 1 - above;
+                    return true;
+                }
+                above += pushes - pops;
+            }
+            return false;
+        }
+
+        private static int Pops(StackBehaviour s)
+        {
+            switch (s)
+            {
+                case StackBehaviour.Pop0:
+                    return 0;
+                case StackBehaviour.Pop1:
+                case StackBehaviour.Popi:
+                case StackBehaviour.Popref:
+                    return 1;
+                case StackBehaviour.Pop1_pop1:
+                case StackBehaviour.Popi_pop1:
+                case StackBehaviour.Popi_popi:
+                case StackBehaviour.Popi_popi8:
+                case StackBehaviour.Popi_popr4:
+                case StackBehaviour.Popi_popr8:
+                case StackBehaviour.Popref_pop1:
+                case StackBehaviour.Popref_popi:
+                    return 2;
+                case StackBehaviour.Popi_popi_popi:
+                case StackBehaviour.Popref_popi_popi:
+                case StackBehaviour.Popref_popi_popi8:
+                case StackBehaviour.Popref_popi_popr4:
+                case StackBehaviour.Popref_popi_popr8:
+                case StackBehaviour.Popref_popi_popref:
+                case StackBehaviour.Popref_popi_pop1:
+                    return 3;
+                default:
+                    return -1;
+            }
+        }
+
+        private static int Pushes(StackBehaviour s)
+        {
+            switch (s)
+            {
+                case StackBehaviour.Push0:
+                    return 0;
+                case StackBehaviour.Push1:
+                case StackBehaviour.Pushi:
+                case StackBehaviour.Pushi8:
+                case StackBehaviour.Pushr4:
+                case StackBehaviour.Pushr8:
+                case StackBehaviour.Pushref:
+                    return 1;
+                case StackBehaviour.Push1_push1:
+                    return 2;
+                default:
+                    return -1;
+            }
+        }
+
+        // The cell CE reads the light and the roof at: the real target cell for a shot between floors (the pack's one rule,
+        // CrossFloor), else CE's targetCell.
+        public static IntVec3 RealTargetCell(IntVec3 targetCell, Verb_LaunchProjectileCE verb, LocalTargetInfo target)
+        {
+            if (NoLightCell || !target.IsValid || target.Cell == targetCell || !CrossFloor(verb, target.Cell))
+            {
+                return targetCell;
+            }
+            PackZ.Changed++;
+            LightCellSwaps++;
+            return target.Cell;
+        }
 
         // ------------------------------------------------------------------ mortar spotting (D3: LineClear3D)
         public static IEnumerable<CodeInstruction> Spotting_Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -781,6 +1012,9 @@ namespace IsoRimCEPackZ
             {
                 if (ci.opcode == OpCodes.Call && ci.operand is MethodInfo mi && mi == los)
                 {
+                    // (the verb and its target on top of the call's arguments: the heights are theirs)
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).MoveLabelsFrom(ci);
+                    yield return new CodeInstruction(OpCodes.Ldarg_1);
                     ci.operand = mine;
                     found++;
                 }
@@ -794,9 +1028,11 @@ namespace IsoRimCEPackZ
 
         public static int SpottingChecks;
 
-        // The spotter's sight from the mortar to the target: GenSight on one floor, ProjectZ's 3D line between floors (from
-        // a standing spotter's eyes to the target's middle height).
-        public static bool Spotting(IntVec3 start, IntVec3 end, Map map, bool skipFirstCell, Func<IntVec3, bool> validator, int halfXOffset, int halfZOffset)
+        // The spotter's sight from the mortar to the target: GenSight on one floor, ProjectZ's 3D line between floors, from
+        // the spotter's eyes to the target's middle (heights from CE's CollisionVertical; a cell target: Sight's one rule for
+        // aiming at a cell on another floor, Sight.CellAims).
+        public static bool Spotting(IntVec3 start, IntVec3 end, Map map, bool skipFirstCell, Func<IntVec3, bool> validator, int halfXOffset, int halfZOffset,
+            Verb_ShootMortarCE verb, LocalTargetInfo target)
         {
             Layout L = Layout.Of(map);
             if (L != null)
@@ -806,10 +1042,33 @@ namespace IsoRimCEPackZ
                 {
                     PackZ.Changed++;
                     SpottingChecks++;
-                    return ProjectZ.Api.LineClear3D(start, 1.5f * Layout.CellsPerUnit, end, 0.85f * Layout.CellsPerUnit, map, validator);
+                    float k = Layout.CellsPerUnit;
+                    float eye = SpotterHeight(verb) * k;
+                    if (target.Thing != null)
+                    {
+                        CollisionVertical cv = new CollisionVertical(target.Thing);
+                        return ProjectZ.Api.LineClear3D(start, eye, end, (cv.Min + cv.Max) / 2f * k, map, validator);
+                    }
+                    int up = kt - ks;
+                    for (int i = 0; i < Sight.CellAims(up); i++)
+                    {
+                        if (ProjectZ.Api.LineClear3D(start, eye, end, Sight.CellAimHeight(up, i), map, validator))
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
                 }
             }
             return GenSight.LineOfSight(start, end, map, skipFirstCell, validator, halfXOffset, halfZOffset);
+        }
+
+        // The spotter's eyes in CE units: CE's shot height of the verb's ShooterPawn (CE's own pick: the caster pawn or the
+        // turret's operator), else the mortar verb's own.
+        private static float SpotterHeight(Verb_ShootMortarCE verb)
+        {
+            Pawn crew = verb.ShooterPawn;
+            return crew != null ? new CollisionVertical(crew).shotHeight : verb.ShotHeight;
         }
 
     }

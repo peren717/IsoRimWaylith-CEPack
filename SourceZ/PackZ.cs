@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using Verse;
@@ -31,6 +32,8 @@ namespace IsoRimCEPackZ
     //  - Api (Api.cs, Docs/Api.md): placement queries, other mods' target geometry and surface explosion rules. Their CE
     //    members are checked here at startup; their patches land on first use (ApplyLate), so a game without a user of a
     //    part has none of its patches.
+    //  - Copies (CopyWatches): where CE's own method can't be called between floors, the pack's copy of it is listed with
+    //    the CE method's IL hash and watched through IsoRim's Api.WatchCopy (one warning after a CE update changed it).
     //  - Fail-soft: if a key flight or aim patch fails (a CE update), shots between floors are refused (CE's "no line of
     //    sight") rather than flying half-patched; one log line says so. Shots on one floor are untouched. A group is all
     //    or nothing (a failure undoes what it applied); the CE members a group reads are resolved before it patches; the
@@ -123,8 +126,14 @@ namespace IsoRimCEPackZ
             H = h;
             bool gate = Try(h, "Gate", Gate.Patch, false, false, typeof(Gate), typeof(Layout));   // the refusal itself first
             FlightOn = Try(h, "Flight", Frames.Patch, true, false, typeof(Frames), typeof(Layout));
-            Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(FireLine), typeof(Layout));
+            bool aimOn = Try(h, "Aim", Aim.Patch, true, false, typeof(Aim), typeof(FireLine), typeof(Layout));
             Try(h, "Aim extras", Aim.PatchExtras, false, false, typeof(Aim), typeof(Layout));
+            Try(h, "Min collision distance", Aim.PatchMinCollision, false, false, typeof(Aim), typeof(Layout));   // not key: CE's raw-row value when it fails
+            if (aimOn)
+            {
+                // not key: light and weather read at the shooter-frame cell when it fails (on the aim group's method: only with it)
+                Try(h, "Light and weather at the target cell", Aim.PatchLightCell, false, false, typeof(Aim), typeof(Layout));
+            }
             Try(h, "Sight", Sight.Patch, true, false, typeof(Sight), typeof(Aim), typeof(FireLine), typeof(Layout));
             Try(h, "Throws", Throws.Patch, true, false, typeof(Throws), typeof(Aim), typeof(Layout));
             Try(h, "Flight extras", Frames.PatchExtras, false, true, typeof(Frames));
@@ -170,6 +179,7 @@ namespace IsoRimCEPackZ
             {
                 Log.Message(Tag + "Combat Extended between floors: " + Applied + " patches.");
             }
+            CopyWatches.Register();
         }
 
         // The groups that failed (with the reason) and the ones left out because the flight patches failed.
@@ -394,6 +404,22 @@ namespace IsoRimCEPackZ
         {
             h.Patch(target, transpiler: new HarmonyMethod(owner, patch));
             Applied++;
+        }
+
+        // A key part failed in play (a CE update met at run time): from now on shots between floors are refused and the Api
+        // parts are off, as after a key group failed at startup (or ProjectZ's parts were off: CheckParts). One warning.
+        internal static void FailInPlay(string part, string reason)
+        {
+            if (!Healthy)
+            {
+                return;
+            }
+            Healthy = false;
+            Failed.Add(part);
+            PlacementQuery.Disable();
+            TargetGeometry.Disable();
+            SurfaceExplosions.Disable();
+            Log.Warning(Tag + part + " failed in play (" + reason + "): shots between floors are refused from now on, shots on one floor are as Combat Extended has them.");
         }
     }
 

@@ -27,7 +27,7 @@ namespace IsoRimCEPackZ
             {
                 ("b1", BlockerDomes), ("b1d", BlockerLanding), ("b1e", BlockerSameFloor),
                 ("b2a", () => CompCiws(0)), ("b2b", () => CompCiws(1)), ("b2c", () => CompCiws(2)),
-                ("w1", WorldArrival), ("w2", WorldFire),
+                ("w1", WorldArrival), ("w2", WorldFire), ("o1", OwnerMinCollision), ("l1", LightCell), ("s1", SlabEdgeSpotting),
             };
             Check("M13 patch groups landed (other mods' shields, CIWS comp targets)", !PackZ.Failed.Any() && Ciws.On, "failed " + string.Join(",", PackZ.Failed) + ", CIWS " + Ciws.On);
             foreach ((string id, Func<IEnumerator<int>> run) in all)
@@ -44,6 +44,77 @@ namespace IsoRimCEPackZ
             Out("M13 counters: blockers entries " + Blockers.Entries + ", offers " + Blockers.Offers + ", met " + Blockers.Met + " (landing " + Blockers.Landings + "), zone sets " + Blockers.ZoneSets
                 + "; frame views " + FrameView.Moves + "; CIWS comp views " + Ciws.CompViews + ", refused at a plane " + Ciws.CompPlaneRefused + "; test dome intercepts " + domeHits.Count
                 + "; shells to the world " + worldShells.Count + ", attrition blasts " + attrition.Count);
+        }
+
+        // ------------------------------------------------------------------ o1: the owner's answer is followed
+        // A shot from floor 1 down at the ground: its minimum collision distance is CE's own GetMinCollisionDistance, called
+        // by CE's own TryCastShot on the target cell's centre read in the shooter's frame (Aim.MinCollision_Transpiler), so
+        // on the one-floor distance, not the raw-row one a band too far. For the check CE's method is patched to answer its
+        // argument + MinCollisionOffset, so the projectile's value names the distance CE's call got: it must be the
+        // one-floor distance of the fixture (within MinCollisionSlack: CE measures from the pawn's drawn centre), not the
+        // raw-row one. -cepacknomincoll (the swap off) must fail it. Mode fault -cepackfault=mincollision runs it as M7b
+        // with the swap's group failed: the shot still fires between floors, with CE's raw-row distance.
+        private const float MinCollisionOffset = 1000f, MinCollisionSlack = 0.5f;
+        private static bool minMark;
+        private static readonly List<(string by, float min)> minSeen = new List<(string, float)>();
+
+        public static void MinCollision_Postfix(float __0, ref float __result)
+        {
+            if (minMark)
+            {
+                __result = __0 + MinCollisionOffset;
+            }
+        }
+
+        public static void MinSeen_Postfix(ProjectileCE __instance)
+        {
+            if (minMark)
+            {
+                minSeen.Add((__instance.launcher?.ThingID ?? "-", __instance.minCollisionDistance));
+            }
+        }
+
+        private static IEnumerator<int> OwnerMinCollision() => MinCollisionShot("o1", true);
+
+        private static IEnumerator<int> MinCollisionShot(string id, bool corrected)
+        {
+            Out("--- " + id + " CE's own minimum collision distance, between floors (" + (corrected ? "one-floor distance" : "correction off: CE's raw-row distance") + ")");
+            // (check 2's balcony, moved to a block of its own)
+            Wipe(110, 171, 125, 198);
+            Slab(115, 176, 119, 180);
+            IntVec3 targetCell = On(117, 193, 0), shooterCell = On(117, 180, 1);
+            Pawn target = Target(targetCell);
+            Pawn shooter = Colonist(shooterCell, "Gun_AssaultRifle");
+            // CE's distance runs from the shooter's centre (no barrel offset on this gun) to the target cell's centre: raw
+            // rows, and on one floor (the target's ground cell on the shooter's floor)
+            Vector3 from = shooterCell.ToVector3Shifted(), rawTo = targetCell.ToVector3Shifted(), oneTo = On(117, 193, 1).ToVector3Shifted();
+            float raw = new Vector2(rawTo.x - from.x, rawTo.z - from.z).magnitude, one = new Vector2(oneTo.x - from.x, oneTo.z - from.z).magnitude;
+            Harmony h = new Harmony("peren.isorimwaylith.cepack.testz.o1");
+            MethodInfo launch = typeof(ProjectileCE).GetMethods().First(x => x.Name == "Launch" && x.GetParameters().Length == 3 && x.DeclaringType == typeof(ProjectileCE));
+            h.Patch(AccessTools.Method(typeof(Verb_LaunchProjectileCE), "GetMinCollisionDistance", new[] { typeof(float) }), postfix: new HarmonyMethod(typeof(TestZ), nameof(MinCollision_Postfix)));
+            h.Patch(launch, postfix: new HarmonyMethod(typeof(TestZ), nameof(MinSeen_Postfix)) { priority = Priority.Last });
+            yield return 30;
+            string can = CanHit(shooter, target);
+            minSeen.Clear();
+            minMark = true;
+            int t0 = Find.TickManager.TicksGame, swaps0 = Aim.MinCollisionSwaps;
+            Order(shooter, target);
+            yield return 300;
+            minMark = false;
+            h.UnpatchAll(h.Id);
+            List<Shot> launched = By(shooter, Launches, t0);
+            List<float> mine = minSeen.Where(s => s.by == shooter.ThingID).Select(s => s.min).ToList();
+            bool stayed = shooter.Position == shooterCell && target.Position == targetCell;
+            float want = (corrected ? one : raw) + MinCollisionOffset, other = (corrected ? raw : one) + MinCollisionOffset;
+            string seen = string.Join(",", mine.Select(v => v.ToString("0.000")));
+            string got = "can hit " + can + ", launched " + launched.Count + ", in place " + stayed + ", swaps " + (Aim.MinCollisionSwaps - swaps0) + ", distances " + seen
+                + " (one floor " + (one + MinCollisionOffset).ToString("0.000") + ", raw rows " + (raw + MinCollisionOffset).ToString("0.000") + ")";
+            Out("  " + got);
+            Check(id + (corrected ? " a shot between floors: CE's (patched) minimum collision distance of the one-floor distance, not the raw-row one"
+                    : " the correction's group failed: the shot between floors still fires, with CE's (patched) minimum collision distance of the raw-row distance"),
+                launched.Count > 0 && mine.Count > 0 && stayed && Mathf.Abs(want - other) > 2f * MinCollisionSlack
+                && mine.All(v => Mathf.Abs(v - want) < MinCollisionSlack && Mathf.Abs(v - other) > MinCollisionSlack), got);
+            Gone(shooter, target);
         }
 
         // ------------------------------------------------------------------ the test shield blocker (an "other mod")

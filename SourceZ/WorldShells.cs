@@ -91,6 +91,8 @@ namespace IsoRimCEPackZ
 
         // Where the ray from the shooter (its ground cell) towards a world tile leaves the ground rect (CE's direction:
         // this map's tile centre minus the target's, its x and z), as a cell on the shooter's floor. False without floors.
+        // Copied from CE CE_Utility.ExitCell and Building_TurretGunCE.TryOrderAttackWorldTile (watched, CopyWatches): CE
+        // intersects the ray with map.Size, which can't be pointed at the ground rect.
         private static bool ExitOnBand(Thing caster, RimWorld.Planet.PlanetTile tile, out IntVec3 c)
         {
             c = IntVec3.Invalid;
@@ -140,7 +142,8 @@ namespace IsoRimCEPackZ
             }
         }
 
-        // CE: GetRandomImpactCell() (map: ShellingUtility's, set by FindRandomImpactCell).
+        // Copied from CE ShellingUtility.GetRandomImpactCell (watched, CopyWatches), over the ground rect (map: ShellingUtility's,
+        // set by FindRandomImpactCell).
         public static IntVec3 RandomCell()
         {
             Map map = mapField.GetValue(null) as Map;

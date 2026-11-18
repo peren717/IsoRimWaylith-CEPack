@@ -43,7 +43,13 @@ namespace IsoRimCEPackZ
             On = true;
         }
 
-        // CE: Building_TurretGunCE.OrderAttack, for a target on another floor.
+        // Copied from CE Building_TurretGunCE.OrderAttack (watched, CopyWatches), for a target on another floor. Why a copy:
+        // CE measures both range limits as (targ.Cell - Position).LengthHorizontal. ProjectZ's 3D scope does not answer an
+        // IntVec3 difference (it has no height to carry), and the pack's Scope swap of it gives the ground distance, so the
+        // limits would be judged flat. A transpiler swapping each subtraction-plus-LengthHorizontal pair for the 3D distance
+        // was judged more fragile than this short watched copy: it must match a multi-instruction IL pattern (the
+        // difference goes through a local) and tell the minimum range (Distance3D) from the maximum (RangeDistance, the
+        // range rule) by their order in CE's body.
         public static bool OrderAttack_Prefix(Building_TurretGunCE __instance, LocalTargetInfo targ)
         {
             Map map = __instance.Map;
